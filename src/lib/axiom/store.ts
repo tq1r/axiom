@@ -66,53 +66,122 @@ export const useNav = create<NavState>()(
 )
 
 // ============ USER STORE ============
+// Real email auth backed by localStorage. No server needed.
+// Accounts are stored in a separate key so they survive sign-out.
+
+interface StoredAccount {
+  id: string
+  name: string
+  email: string
+  password: string // plaintext — fine for a demo, never do this in production
+  createdAt: number
+}
+
 interface UserState {
-  user: User
+  user: User | null
+  authError: string | null
   setUser: (u: Partial<User>) => void
   consumeCredit: (amount?: number) => void
-  signIn: (name: string, email: string) => void
+  signUp: (name: string, email: string, password: string) => boolean
+  signIn: (email: string, password: string) => boolean
+  signInWithOAuth: (provider: 'google' | 'github') => void
   signOut: () => void
+}
+
+function loadAccounts(): StoredAccount[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem('axiom-accounts')
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveAccounts(accts: StoredAccount[]) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem('axiom-accounts', JSON.stringify(accts))
+}
+
+function makeUser(acct: StoredAccount): User {
+  return {
+    id: acct.id,
+    name: acct.name,
+    email: acct.email,
+    plan: 'pro',
+    credits: 4320,
+    creditsTotal: 5000,
+  }
 }
 
 export const useUser = create<UserState>()(
   persist(
     (set) => ({
-      user: {
-        id: 'u_local',
-        name: 'Alex Rivera',
-        email: 'alex@axiom.dev',
-        plan: 'pro',
-        credits: 4320,
-        creditsTotal: 5000,
-      },
+      user: null,
+      authError: null,
       setUser: (u) =>
-        set((s) => ({ user: { ...s.user, ...u } })),
+        set((s) => (s.user ? { user: { ...s.user, ...u } } : {})),
       consumeCredit: (amount = 1) =>
-        set((s) => ({
-          user: { ...s.user, credits: Math.max(0, s.user.credits - amount) },
-        })),
-      signIn: (name, email) =>
-        set({
-          user: {
+        set((s) =>
+          s.user
+            ? { user: { ...s.user, credits: Math.max(0, s.user.credits - amount) } }
+            : {}
+        ),
+      signUp: (name, email, password) => {
+        const accounts = loadAccounts()
+        const exists = accounts.find((a) => a.email.toLowerCase() === email.toLowerCase())
+        if (exists) {
+          set({ authError: 'An account with this email already exists.' })
+          return false
+        }
+        if (password.length < 6) {
+          set({ authError: 'Password must be at least 6 characters.' })
+          return false
+        }
+        const acct: StoredAccount = {
+          id: 'u_' + uid(),
+          name: name || email.split('@')[0],
+          email,
+          password,
+          createdAt: Date.now(),
+        }
+        accounts.push(acct)
+        saveAccounts(accounts)
+        set({ user: makeUser(acct), authError: null })
+        return true
+      },
+      signIn: (email, password) => {
+        const accounts = loadAccounts()
+        const acct = accounts.find((a) => a.email.toLowerCase() === email.toLowerCase())
+        if (!acct) {
+          set({ authError: 'No account found with this email.' })
+          return false
+        }
+        if (acct.password !== password) {
+          set({ authError: 'Incorrect password.' })
+          return false
+        }
+        set({ user: makeUser(acct), authError: null })
+        return true
+      },
+      signInWithOAuth: (provider) => {
+        const email = `${provider.toLowerCase()}@axiom.dev`
+        const accounts = loadAccounts()
+        let acct = accounts.find((a) => a.email === email)
+        if (!acct) {
+          acct = {
             id: 'u_' + uid(),
-            name,
+            name: provider === 'google' ? 'Google User' : 'GitHub User',
             email,
-            plan: 'pro',
-            credits: 4320,
-            creditsTotal: 5000,
-          },
-        }),
-      signOut: () =>
-        set({
-          user: {
-            id: 'u_local',
-            name: 'Alex Rivera',
-            email: 'alex@axiom.dev',
-            plan: 'pro',
-            credits: 4320,
-            creditsTotal: 5000,
-          },
-        }),
+            password: Math.random().toString(36).slice(2),
+            createdAt: Date.now(),
+          }
+          accounts.push(acct)
+          saveAccounts(accounts)
+        }
+        set({ user: makeUser(acct), authError: null })
+      },
+      signOut: () => set({ user: null, authError: null }),
     }),
     { name: 'axiom-user' }
   )

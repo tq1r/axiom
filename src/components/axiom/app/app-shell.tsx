@@ -51,7 +51,7 @@ const NAV_ITEMS = [
 ] as const
 
 export function AppShell({ children, activeView, embedded = false }: AppShellProps) {
-  const { navigate, setCommandOpen, setAuth } = useNav()
+  const { navigate, setCommandOpen } = useNav()
   const { user, signOut } = useUser()
   const { threads, createThread, setActiveThread } = useChat()
   const { projects, createProject, setActiveProject, setActiveFile } = useStudio()
@@ -72,9 +72,10 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
 
   const handleSignOut = () => {
     signOut()
-    setAuth(false)
     navigate('landing')
   }
+
+  if (!user) return null
 
   return (
     <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">

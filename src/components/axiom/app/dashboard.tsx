@@ -34,8 +34,8 @@ export function Dashboard() {
     return 'Good evening'
   })()
 
-  const firstName = user.name.split(' ')[0]
-  const creditsPct = Math.round((user.credits / user.creditsTotal) * 100)
+  const firstName = user?.name?.split(' ')[0] || 'there'
+  const creditsPct = user ? Math.round((user.credits / user.creditsTotal) * 100) : 0
 
   const quickStarts = [
     { label: 'Write code', desc: 'Build a React component', icon: Code2, action: () => navigate('studio'), gradient: 'from-cyan-400 to-teal-500' },

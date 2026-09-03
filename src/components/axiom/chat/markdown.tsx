@@ -72,31 +72,31 @@ function highlightCode(code: string, lang: string): string {
 
   // Comments
   if (['ts', 'tsx', 'js', 'jsx', 'typescript', 'javascript', 'go', 'rust', 'java', 'c', 'cpp', 'csharp', 'cs', 'swift', 'kt', 'scss', 'css', 'graphql'].includes(lang)) {
-    out = out.replace(/(\/\/[^\n]*)/g, '<span class="text-zinc-500 italic">$1</span>')
+    out = out.replace(/(\/\/[^\n]*)/g, '<span style="color: var(--muted-foreground); font-style: italic;">$1</span>')
   }
   if (['py', 'python', 'rb', 'ruby', 'sh', 'bash', 'shell', 'yaml', 'yml', 'toml'].includes(lang)) {
-    out = out.replace(/(#[^\n]*)/g, '<span class="text-zinc-500 italic">$1</span>')
+    out = out.replace(/(#[^\n]*)/g, '<span style="color: var(--muted-foreground); font-style: italic;">$1</span>')
   }
 
   // Strings
-  out = out.replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, (m) => `<span class="text-emerald-400">${m}</span>`)
+  out = out.replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, (m) => `<span style="color: var(--forest);">${m}</span>`)
 
   // Keywords
   const keywords = ['import', 'export', 'from', 'default', 'const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'class', 'extends', 'implements', 'interface', 'type', 'enum', 'async', 'await', 'new', 'try', 'catch', 'finally', 'throw', 'switch', 'case', 'break', 'continue', 'this', 'super', 'static', 'public', 'private', 'protected', 'readonly', 'get', 'set', 'void', 'null', 'undefined', 'true', 'false', 'def', 'print', 'func', 'fn', 'let', 'mut', 'pub', 'struct', 'impl', 'trait', 'use', 'match', 'self']
   const kwRegex = new RegExp(`\\b(${keywords.join('|')})\\b`, 'g')
-  out = out.replace(kwRegex, '<span class="text-violet-400">$1</span>')
+  out = out.replace(kwRegex, '<span style="color: var(--tangerine); font-weight: 500;">$1</span>')
 
   // Numbers
-  out = out.replace(/\b(\d+\.?\d*)\b/g, '<span class="text-orange-400">$1</span>')
+  out = out.replace(/\b(\d+\.?\d*)\b/g, '<span style="color: var(--ochre);">$1</span>')
 
   // Booleans / nulls (already covered above, but ensure not double-wrapped by limiting)
 
   // Function calls (word followed by paren)
-  out = out.replace(/\b([a-zA-Z_$][\w$]*)(\s*\()/g, '<span class="text-cyan-400">$1</span>$2')
+  out = out.replace(/\b([a-zA-Z_$][\w$]*)(\s*\()/g, '<span style="color: #4A6FA5;">$1</span>$2')
 
   // JSX tags
   if (['tsx', 'jsx'].includes(lang)) {
-    out = out.replace(/(&lt;\/?)([A-Za-z][\w.]*)/g, '$1<span class="text-pink-400">$2</span>')
+    out = out.replace(/(&lt;\/?)([A-Za-z][\w.]*)/g, '$1<span style="color: var(--tangerine);">$2</span>')
   }
 
   return out
@@ -228,7 +228,7 @@ function CodeBlock({ code, lang, onOpenInStudio }: { code: string; lang: string;
   const highlighted = useMemo(() => highlightCode(code, lang), [code, lang])
 
   return (
-    <div className="my-4 rounded-lg overflow-hidden border border-border bg-[#0d0d0f]">
+    <div className="my-4 rounded-lg overflow-hidden border hairline bg-[var(--background-2)]">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">

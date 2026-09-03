@@ -32,6 +32,74 @@ import type { AgentStep } from '@/lib/axiom/types'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from 'sonner'
+import { generatePlan } from '@/lib/axiom/code-generator'
+import type { GeneratedFile } from '@/lib/axiom/code-generator'
+import type { ProjectFile } from '@/lib/axiom/types'
+
+/**
+ * Add a generated file to the project's file tree.
+ * Creates parent directories as needed.
+ */
+function addFileToProject(projectId: string, file: GeneratedFile) {
+  // Access the store directly to add the file
+  const store = useStudio.getState()
+  const project = store.projects.find((p) => p.id === projectId)
+  if (!project) return
+
+  const newFile: ProjectFile = {
+    id: 'f_' + uid(),
+    name: file.path.split('/').pop() || file.path,
+    path: file.path,
+    content: file.content,
+    language: file.language,
+  }
+
+  // Parse the path to find/create the right location in the tree
+  const parts = file.path.split('/')
+  const fileName = parts.pop()!
+  const dirPath = parts // e.g. ['src', 'components']
+
+  const updatedFiles = [...project.files]
+
+  // Navigate/create directories
+  let currentLevel = updatedFiles
+  let currentPath = ''
+  for (const dir of dirPath) {
+    currentPath = currentPath ? currentPath + '/' + dir : dir
+    let dirNode = currentLevel.find(
+      (f) => f.isDirectory && f.name === dir
+    )
+    if (!dirNode) {
+      dirNode = {
+        id: 'f_' + uid(),
+        name: dir,
+        path: currentPath,
+        content: '',
+        language: 'directory',
+        isDirectory: true,
+        children: [],
+      }
+      currentLevel.push(dirNode)
+    }
+    if (!dirNode.children) dirNode.children = []
+    currentLevel = dirNode.children
+  }
+
+  // Check if file already exists at this level (update vs add)
+  const existing = currentLevel.find((f) => f.name === fileName && !f.isDirectory)
+  if (existing) {
+    existing.content = file.content
+  } else {
+    currentLevel.push(newFile)
+  }
+
+  // Update the project
+  useStudio.setState((s) => ({
+    projects: s.projects.map((p) =>
+      p.id === projectId ? { ...p, files: updatedFiles, updatedAt: Date.now() } : p
+    ),
+  }))
+}
 
 const CONTEXT_MENTIONS = [
   { id: 'file', label: '@file', desc: 'Reference a specific file', icon: FileEdit },
@@ -102,6 +170,7 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
     updateAgentStep,
     clearAgentSteps,
   } = useStudio()
+  const { activeProjectId, projects } = useStudio()
   const [input, setInput] = useState('')
   const [showMentions, setShowMentions] = useState(false)
   const [activeMentions, setActiveMentions] = useState<string[]>([])
@@ -117,13 +186,8 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
     const prompt = input.trim()
     setInput('')
 
-    // Determine plan based on prompt
-    const planKey = prompt.toLowerCase().includes('landing') || prompt.toLowerCase().includes('page')
-      ? 'landing'
-      : prompt.toLowerCase().includes('todo')
-        ? 'todo'
-        : 'default'
-    const planSteps = AGENT_PLANS[planKey]
+    // Generate a real plan with real code based on the prompt
+    const plan = generatePlan(prompt)
 
     // Add plan step
     const planStepId = 's_' + uid()
@@ -131,58 +195,91 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
       id: planStepId,
       type: 'plan',
       title: 'Plan',
-      detail: prompt,
+      detail: `I'll build: ${prompt}\n\nSteps:\n${plan.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`,
       status: 'done',
       timestamp: Date.now(),
     })
 
     setAgentRunning(true)
 
-    // Execute steps with realistic timing
-    for (let i = 0; i < planSteps.length; i++) {
+    const project = projects.find((p) => p.id === activeProjectId)
+    if (!project) {
+      setAgentRunning(false)
+      return
+    }
+
+    // Execute each step — for file steps, actually create the file and show the real diff
+    let fileIndex = 0
+    for (let i = 0; i < plan.steps.length; i++) {
+      const step = plan.steps[i]
       const stepId = 's_' + uid()
-      const step = planSteps[i]
-      const isFileStep = step.includes('Create') || step.includes('Build') || step.includes('Add') || step.includes('Implement') || step.includes('Wire')
       const isCommandStep = step.includes('Run') || step.includes('Verify')
+      const file = fileIndex < plan.files.length ? plan.files[fileIndex] : null
 
-      addAgentStep({
-        id: stepId,
-        type: isFileStep ? 'file' : isCommandStep ? 'command' : 'thought',
-        title: step,
-        status: 'running',
-        timestamp: Date.now(),
-        fileName: isFileStep ? guessFileName(step, i) : undefined,
-        command: isCommandStep ? 'npm run dev' : undefined,
-      })
+      // If this step matches a file description, treat it as a file step
+      const isFileStep = file && (step.toLowerCase().includes(file.description.toLowerCase().split(' ')[0]) ||
+                                  step.toLowerCase().includes('create') ||
+                                  step.toLowerCase().includes('build') ||
+                                  step.toLowerCase().includes('add'))
 
-      await new Promise((r) => setTimeout(r, 900 + Math.random() * 600))
+      if (file && !isCommandStep) {
+        addAgentStep({
+          id: stepId,
+          type: 'file',
+          title: step,
+          status: 'running',
+          timestamp: Date.now(),
+          fileName: file.path,
+        })
 
-      // For file steps, show a diff
-      if (isFileStep) {
+        await new Promise((r) => setTimeout(r, 800 + Math.random() * 500))
+
+        // Actually add/update the file in the project
+        if (activeProjectId) {
+          addFileToProject(activeProjectId, file)
+        }
+
+        // Show the real file content as a diff (all additions since it's new)
+        const diff = file.content.split('\n').map((line) => '+ ' + line).join('\n')
         updateAgentStep(stepId, {
           status: 'done',
-          diff: generateSampleDiff(step),
+          diff: diff.slice(0, 800) + (diff.length > 800 ? '\n… (truncated)' : ''),
         })
+        fileIndex++
       } else if (isCommandStep) {
-        // Command needs approval — pause until user approves
-        updateAgentStep(stepId, {
+        // Command needs approval
+        addAgentStep({
+          id: stepId,
+          type: 'command',
+          title: step,
           status: 'pending',
+          timestamp: Date.now(),
+          command: plan.command || 'npm run dev',
           detail: 'Approval required to run this command in the sandbox.',
         })
-        // Wait for approval (max 60s then auto-approve for demo)
+
         const approved = await waitForApproval(stepId)
         if (approved) {
           updateAgentStep(stepId, { status: 'running', detail: undefined })
-          await new Promise((r) => setTimeout(r, 800))
+          await new Promise((r) => setTimeout(r, 700))
           updateAgentStep(stepId, {
             status: 'done',
-            output: '✓ Ready in 412ms\n  Local: http://localhost:5173\n  Network: use --host to expose',
+            output: plan.commandOutput || '✓ Ready',
           })
         } else {
           updateAgentStep(stepId, { status: 'error', detail: 'Command rejected by user.' })
           break
         }
       } else {
+        // Thought step
+        addAgentStep({
+          id: stepId,
+          type: 'thought',
+          title: step,
+          status: 'running',
+          timestamp: Date.now(),
+        })
+        await new Promise((r) => setTimeout(r, 600))
         updateAgentStep(stepId, { status: 'done' })
       }
     }
@@ -192,13 +289,15 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
       id: 's_' + uid(),
       type: 'complete',
       title: 'Done',
-      detail: 'All changes applied. Review the diffs above and undo any step if needed.',
+      detail: `Built ${plan.files.length} files. Open them in the editor to review. Undo any step if needed.`,
       status: 'done',
       timestamp: Date.now(),
     })
 
     setAgentRunning(false)
-    toast.success('Agent finished', { description: 'All steps completed successfully.' })
+    toast.success('Agent finished', {
+      description: `Created ${plan.files.length} files. Check the file explorer.`,
+    })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -537,78 +636,4 @@ function StepCard({ step, index, onUndo, isLast }: { step: AgentStep; index: num
       </AnimatePresence>
     </motion.div>
   )
-}
-
-function guessFileName(step: string, index: number): string {
-  const lower = step.toLowerCase()
-  if (lower.includes('header')) return 'src/components/Header.tsx'
-  if (lower.includes('hero')) return 'src/components/Hero.tsx'
-  if (lower.includes('features') || lower.includes('grid')) return 'src/components/Features.tsx'
-  if (lower.includes('pricing')) return 'src/components/Pricing.tsx'
-  if (lower.includes('todo') || lower.includes('store')) return 'src/store/todo.ts'
-  if (lower.includes('form') || lower.includes('input')) return 'src/components/TodoInput.tsx'
-  if (lower.includes('button')) return 'src/components/Button.tsx'
-  if (lower.includes('animation') || lower.includes('scroll')) return 'src/lib/animations.ts'
-  return `src/components/Feature${index}.tsx`
-}
-
-function generateSampleDiff(step: string): string {
-  const lower = step.toLowerCase()
-  if (lower.includes('header')) {
-    return `- <header className="bg-zinc-900">
--   <h1>Old Title</h1>
-- </header>
-+ <header className="sticky top-0 z-50 backdrop-blur-xl bg-zinc-950/80 border-b border-white/5">
-+   <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-+     <Logo />
-+     <nav className="hidden md:flex gap-8 text-sm text-zinc-400">
-+       <a href="#features">Features</a>
-+       <a href="#pricing">Pricing</a>
-+     </nav>
-+     <ThemeToggle />
-+   </div>
-+ </header>`
-  }
-  if (lower.includes('hero')) {
-    return `+ <section className="relative pt-32 pb-24 overflow-hidden">
-+   <div className="absolute inset-0 axiom-grid-bg opacity-40" />
-+   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px]
-+     bg-gradient-to-br from-indigo-500/20 to-cyan-400/20 blur-[120px] rounded-full" />
-+   <div className="relative text-center">
-+     <h1 className="text-6xl font-semibold tracking-tight">
-+       Build <span className="axiom-gradient-text">anything</span>
-+     </h1>
-+   </div>
-+ </section>`
-  }
-  if (lower.includes('pricing')) {
-    return `+ <div className="grid md:grid-cols-3 gap-4">
-+   {tiers.map((t) => (
-+     <PricingCard key={t.id} tier={t} highlight={t.highlight} />
-+   ))}
-+ </div>`
-  }
-  if (lower.includes('todo')) {
-    return `+ export interface Todo {
-+   id: string
-+   text: string
-+   done: boolean
-+   createdAt: number
-+ }
-+
-+ export const useTodos = () => {
-+   const [todos, setTodos] = useState<Todo[]>(() => {
-+     const saved = localStorage.getItem('todos')
-+     return saved ? JSON.parse(saved) : []
-+   })
-+   useEffect(() => {
-+     localStorage.setItem('todos', JSON.stringify(todos))
-+   }, [todos])
-+   return { todos, setTodos }
-+ }`
-  }
-  return `+ // ${step}
-+ export function Feature() {
-+   return <div>Implementation ready</div>
-+ }`
 }

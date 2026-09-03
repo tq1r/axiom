@@ -51,9 +51,9 @@ export function TerminalPanel({ onClose }: TerminalPanelProps) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#0a0a0c] text-zinc-300">
+    <div className="h-full flex flex-col bg-[var(--background-2)] text-foreground">
       {/* Tabs */}
-      <div className="flex items-center justify-between h-9 border-b border-white/5 shrink-0">
+      <div className="flex items-center justify-between h-9 border-b hairline shrink-0">
         <div className="flex items-center h-full">
           {tabs.map((t) => (
             <button
@@ -77,13 +77,13 @@ export function TerminalPanel({ onClose }: TerminalPanelProps) {
         <div className="flex items-center gap-0.5 pr-2">
           <button
             onClick={() => {}}
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/5"
+            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-[var(--secondary)]"
           >
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onClose}
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/5"
+            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-[var(--secondary)]"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -97,27 +97,27 @@ export function TerminalPanel({ onClose }: TerminalPanelProps) {
             className="h-full flex flex-col cursor-text"
             onClick={() => inputRef.current?.focus()}
           >
-            <div ref={scrollRef} className="flex-1 overflow-y-auto axiom-scroll-thin p-3 font-mono text-[12px] leading-relaxed">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-thin p-3 font-mono text-[12px] leading-relaxed">
               {lines.map((line, i) => (
                 <div key={i} className={cn(
                   'whitespace-pre-wrap break-all',
-                  line.type === 'in' && 'text-zinc-100',
-                  line.type === 'out' && 'text-zinc-400',
-                  line.type === 'err' && 'text-red-400'
+                  line.type === 'in' && 'text-foreground',
+                  line.type === 'out' && 'text-muted-foreground',
+                  line.type === 'err' && 'text-red-500'
                 )}>
-                  {line.type === 'in' && <span className="text-emerald-400">❯ </span>}
+                  {line.type === 'in' && <span style={{ color: 'var(--forest)' }}>❯ </span>}
                   {line.text || '\u00A0'}
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 font-mono text-[12px] border-t border-white/5">
-              <span className="text-emerald-400">❯</span>
+            <div className="flex items-center gap-2 px-3 py-2 font-mono text-[12px] border-t hairline">
+              <span style={{ color: 'var(--forest)' }}>❯</span>
               <input
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleCommand}
-                className="flex-1 bg-transparent outline-none text-zinc-100 placeholder:text-zinc-600"
+                className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
                 placeholder="Type a command…"
                 autoFocus
               />
@@ -126,15 +126,15 @@ export function TerminalPanel({ onClose }: TerminalPanelProps) {
         )}
 
         {bottomPanel === 'problems' && (
-          <div className="h-full overflow-y-auto axiom-scroll-thin p-3 font-mono text-[12px] space-y-2">
-            <div className="flex items-start gap-2 text-red-400">
+          <div className="h-full overflow-y-auto scroll-thin p-3 font-mono text-[12px] space-y-2">
+            <div className="flex items-start gap-2 text-red-500">
               <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <div>
                 <div>src/App.tsx:14:8 — Property 'data' does not exist on type 'null'.</div>
                 <div className="text-muted-foreground text-[11px] mt-0.5">Type 'null' has no property 'data'.</div>
               </div>
             </div>
-            <div className="flex items-start gap-2 text-yellow-400">
+            <div className="flex items-start gap-2 text-amber-600">
               <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <div>
                 <div>src/lib/api.ts:3:15 — Unused variable 'API_BASE'.</div>
@@ -145,14 +145,14 @@ export function TerminalPanel({ onClose }: TerminalPanelProps) {
         )}
 
         {bottomPanel === 'output' && (
-          <div className="h-full overflow-y-auto axiom-scroll-thin p-3 font-mono text-[12px] text-zinc-400 space-y-1">
+          <div className="h-full overflow-y-auto scroll-thin p-3 font-mono text-[12px] text-muted-foreground space-y-1">
             <div>[12:04:32] Dev server starting…</div>
             <div>[12:04:32] Loading vite.config.ts</div>
             <div>[12:04:33] ✓ Dependencies optimized</div>
-            <div className="text-emerald-400">[12:04:33] ✓ Ready in 412ms</div>
+            <div style={{ color: 'var(--forest)' }}>[12:04:33] ✓ Ready in 412ms</div>
             <div>[12:04:33] → Local: http://localhost:5173</div>
             <div>[12:04:33] → Network: use --host to expose</div>
-            <div className="text-cyan-400">[12:04:34] [hmr] Connected.</div>
+            <div style={{ color: '#4A6FA5' }}>[12:04:34] [hmr] Connected.</div>
           </div>
         )}
 

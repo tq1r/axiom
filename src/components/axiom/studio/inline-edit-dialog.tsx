@@ -158,7 +158,7 @@ export function InlineEditDialog({
             {!diff && (
               <div className="p-4">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Selected code</div>
-                <div className="rounded-lg border border-border bg-[#0d0d0f] p-3 max-h-32 overflow-y-auto axiom-scroll-thin">
+                <div className="rounded-lg border border-border bg-[var(--background-2)] p-3 max-h-32 overflow-y-auto scroll-thin">
                   <pre className="text-[11px] font-mono text-muted-foreground whitespace-pre-wrap">
                     {selectedCode.slice(0, 500)}
                     {selectedCode.length > 500 ? '\n…' : ''}
@@ -169,13 +169,13 @@ export function InlineEditDialog({
 
             {/* Diff view */}
             {diff && (
-              <div className="p-4 max-h-[40vh] overflow-y-auto axiom-scroll-thin">
+              <div className="p-4 max-h-[40vh] overflow-y-auto scroll-thin">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
                   Proposed change
                   <span className="text-emerald-400">+{countLines(diff.after)}</span>
                   <span className="text-red-400">-{countLines(diff.before)}</span>
                 </div>
-                <div className="rounded-lg border border-border bg-[#0d0d0f] overflow-hidden">
+                <div className="rounded-lg border border-border bg-[var(--background-2)] overflow-hidden">
                   <pre className="text-[12px] font-mono leading-relaxed">
                     {diff.before.split('\n').map((line, i) => (
                       <div key={`b-${i}`} className="px-3 py-0.5 text-red-400 bg-red-500/5">

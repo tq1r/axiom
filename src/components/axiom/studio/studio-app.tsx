@@ -261,16 +261,16 @@ export function StudioApp() {
                 <PanelGroup direction="vertical" autoSaveId="axiom-studio-v">
                   <Panel defaultSize={70} minSize={30}>
                     {/* Editor with tabs */}
-                    <div className="h-full flex flex-col bg-[#0d0d0f]">
+                    <div className="h-full flex flex-col bg-[var(--paper-bright)]">
                       {/* Tabs */}
-                      <div className="flex items-center h-9 border-b border-white/5 bg-[#0a0a0c] shrink-0 overflow-x-auto axiom-scroll-thin">
+                      <div className="flex items-center h-9 border-b hairline bg-[var(--background-2)] shrink-0 overflow-x-auto scroll-thin">
                         {openTabs.map((tab) => (
                           <div
                             key={tab.id}
                             className={cn(
-                              'group flex items-center gap-2 h-full pl-3 pr-2 border-r border-white/5 text-xs cursor-pointer transition-colors',
+                              'group flex items-center gap-2 h-full pl-3 pr-2 border-r hairline text-xs cursor-pointer transition-colors',
                               tab.id === activeFileId
-                                ? 'bg-[#0d0d0f] text-foreground'
+                                ? 'bg-[var(--paper-bright)] text-foreground'
                                 : 'text-muted-foreground hover:bg-white/[0.02]'
                             )}
                             onClick={() => setActiveFile(tab.id)}
@@ -315,7 +315,7 @@ export function StudioApp() {
                       </div>
 
                       {/* Status bar */}
-                      <div className="flex items-center justify-between h-6 px-3 bg-[#0a0a0c] border-t border-white/5 text-[10px] text-muted-foreground shrink-0">
+                      <div className="flex items-center justify-between h-6 px-3 bg-[var(--background-2)] border-t hairline text-[10px] text-muted-foreground shrink-0">
                         <div className="flex items-center gap-3">
                           <span className="flex items-center gap-1">
                             <GitBranch className="h-2.5 w-2.5" /> main

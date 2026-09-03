@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 export function LandingPage() {
-  const { navigate, setAuth, setAuthMode } = useNav()
+  const { navigate, setAuthMode } = useNav()
   const { createThread, setActiveThread } = useChat()
   const { createProject, setActiveProject, setActiveFile } = useStudio()
   const { user } = useUser()
@@ -43,7 +43,6 @@ export function LandingPage() {
       navigate('dashboard')
     } else {
       setAuthMode('signup')
-      setAuth(true)
       navigate('auth')
     }
   }

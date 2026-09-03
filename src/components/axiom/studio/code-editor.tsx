@@ -21,25 +21,26 @@ function escapeHtml(s: string) {
 function highlight(code: string, lang: string): string {
   let out = escapeHtml(code)
 
+  // Comments — warm muted brown
   if (['ts', 'tsx', 'js', 'jsx', 'typescript', 'javascript', 'go', 'rust', 'java', 'c', 'cpp', 'csharp', 'cs', 'swift', 'kt', 'scss', 'css', 'graphql'].includes(lang)) {
-    out = out.replace(/(\/\/[^\n]*)/g, '<span class="text-zinc-500 italic">$1</span>')
+    out = out.replace(/(\/\/[^\n]*)/g, '<span style="color: var(--muted-foreground); font-style: italic;">$1</span>')
   }
   if (['py', 'python', 'rb', 'ruby', 'sh', 'bash', 'shell', 'yaml', 'yml', 'toml'].includes(lang)) {
-    out = out.replace(/(#[^\n]*)/g, '<span class="text-zinc-500 italic">$1</span>')
+    out = out.replace(/(#[^\n]*)/g, '<span style="color: var(--muted-foreground); font-style: italic;">$1</span>')
   }
-  // Strings
-  out = out.replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, (m) => `<span class="text-emerald-400">${m}</span>`)
-  // Keywords
+  // Strings — forest green
+  out = out.replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, (m) => `<span style="color: var(--forest);">${m}</span>`)
+  // Keywords — tangerine
   const keywords = ['import', 'export', 'from', 'default', 'const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'class', 'extends', 'implements', 'interface', 'type', 'enum', 'async', 'await', 'new', 'try', 'catch', 'finally', 'throw', 'switch', 'case', 'break', 'continue', 'this', 'super', 'static', 'public', 'private', 'protected', 'readonly', 'get', 'set', 'void', 'null', 'undefined', 'true', 'false', 'def', 'print', 'func', 'fn', 'mut', 'pub', 'struct', 'impl', 'trait', 'use', 'match', 'self', 'in', 'of', 'as', 'is', 'not', 'and', 'or']
   const kwRegex = new RegExp(`\\b(${keywords.join('|')})\\b`, 'g')
-  out = out.replace(kwRegex, '<span class="text-violet-400">$1</span>')
-  // Numbers
-  out = out.replace(/\b(\d+\.?\d*)\b/g, '<span class="text-orange-400">$1</span>')
-  // Function calls
-  out = out.replace(/\b([a-zA-Z_$][\w$]*)(\s*\()/g, '<span class="text-cyan-400">$1</span>$2')
-  // JSX tags
+  out = out.replace(kwRegex, '<span style="color: var(--tangerine); font-weight: 500;">$1</span>')
+  // Numbers — ochre
+  out = out.replace(/\b(\d+\.?\d*)\b/g, '<span style="color: var(--ochre);">$1</span>')
+  // Function calls — ink (slightly darker)
+  out = out.replace(/\b([a-zA-Z_$][\w$]*)(\s*\()/g, '<span style="color: #4A6FA5;">$1</span>$2')
+  // JSX tags — tangerine darker
   if (['tsx', 'jsx'].includes(lang)) {
-    out = out.replace(/(&lt;\/?)([A-Za-z][\w.]*)/g, '$1<span class="text-pink-400">$2</span>')
+    out = out.replace(/(&lt;\/?)([A-Za-z][\w.]*)/g, '$1<span style="color: var(--tangerine);">$2</span>')
   }
   return out
 }
@@ -88,9 +89,9 @@ export function CodeEditor({ value, language, onChange, readOnly, ghostText, onA
   }, [lineCount])
 
   return (
-    <div className="relative h-full flex bg-[#0d0d0f] font-mono text-[13px] leading-[1.6] overflow-hidden">
+    <div className="relative h-full flex bg-[var(--paper-bright)] font-mono text-[13px] leading-[1.6] overflow-hidden">
       {/* Line numbers */}
-      <div className="shrink-0 select-none py-3 px-3 text-right text-zinc-600 bg-[#0a0a0c] border-r border-white/5">
+      <div className="shrink-0 select-none py-3 px-3 text-right text-muted-foreground/60 bg-[var(--background-2)] border-r hairline">
         <pre className="whitespace-pre">{lineNumbers}</pre>
       </div>
 
@@ -100,7 +101,7 @@ export function CodeEditor({ value, language, onChange, readOnly, ghostText, onA
         <pre
           ref={preRef}
           aria-hidden
-          className="absolute inset-0 m-0 py-3 px-4 whitespace-pre overflow-auto pointer-events-none axiom-scroll-thin"
+          className="absolute inset-0 m-0 py-3 px-4 whitespace-pre overflow-auto pointer-events-none scroll-thin"
           dangerouslySetInnerHTML={{ __html: highlighted }}
         />
 
@@ -115,13 +116,13 @@ export function CodeEditor({ value, language, onChange, readOnly, ghostText, onA
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
-          className="absolute inset-0 w-full h-full py-3 px-4 bg-transparent text-transparent caret-white resize-none outline-none whitespace-pre overflow-auto axiom-scroll-thin"
-          style={{ caretColor: '#fff' }}
+          className="absolute inset-0 w-full h-full py-3 px-4 bg-transparent text-transparent resize-none outline-none whitespace-pre overflow-auto scroll-thin"
+          style={{ caretColor: 'var(--tangerine)' }}
         />
 
         {/* Ghost text hint */}
         {ghostText && (
-          <div className="absolute bottom-3 right-4 text-[10px] text-muted-foreground bg-muted/80 px-2 py-0.5 rounded border border-border pointer-events-none">
+          <div className="absolute bottom-3 right-4 text-[10px] text-muted-foreground bg-[var(--card)] px-2 py-0.5 rounded border hairline pointer-events-none">
             Tab to accept
           </div>
         )}

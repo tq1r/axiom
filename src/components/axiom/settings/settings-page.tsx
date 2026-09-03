@@ -45,11 +45,11 @@ const TABS = [
 ] as const
 
 export function SettingsPage() {
-  const { activeSettingsTab, setActiveSettingsTab, setAuth, navigate } = useNav()
+  const { activeSettingsTab, setActiveSettingsTab, navigate } = useNav()
   const { user, setUser, signOut } = useUser()
   const { theme, setTheme } = useTheme()
-  const [name, setName] = useState(user.name)
-  const [email, setEmail] = useState(user.email)
+  const [name, setName] = useState(user?.name || '')
+  const [email, setEmail] = useState(user?.email || '')
   const [showApiKey, setShowApiKey] = useState(false)
   const [apiKeys, setApiKeys] = useState([
     { id: 'k1', name: 'Production', key: 'ax_live_sk_a8f3...c92e', created: '2 days ago' },
@@ -63,7 +63,6 @@ export function SettingsPage() {
 
   const handleSignOut = () => {
     signOut()
-    setAuth(false)
     navigate('landing')
   }
 
@@ -77,6 +76,8 @@ export function SettingsPage() {
     setApiKeys((prev) => [{ id: 'k' + Date.now(), name: 'New key', key: newKey, created: 'just now' }, ...prev])
     toast.success('New API key generated')
   }
+
+  if (!user) return null
 
   return (
     <AppShell activeView="settings">
