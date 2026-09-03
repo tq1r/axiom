@@ -371,58 +371,41 @@ export function ChatApp() {
 }
 
 function EmptyState({ onPick }: { onPick: (text: string) => void }) {
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
-
   return (
-    <div className="h-full flex flex-col items-center justify-center px-4 py-12">
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="text-center max-w-2xl w-full"
-      >
-        <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--tangerine)] mb-6 anim-float">
-          <Sparkles className="h-6 w-6 text-white" />
-        </div>
-        <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
-          {greeting}
-        </div>
-        <h1 className="font-serif text-4xl sm:text-5xl tracking-[-0.02em] leading-[1.1] font-medium">
-          What can we <span className="italic text-[var(--tangerine)]">build</span> today?
-        </h1>
-        <p className="mt-4 text-muted-foreground">
-          Ask anything — Axiom will think it through and write it out.
-        </p>
+    <div className="h-full overflow-y-auto scroll-thin">
+      <div className="min-h-full flex flex-col items-center justify-center px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center max-w-2xl w-full"
+        >
+          {/* Hero headline */}
+          <h1 className="font-serif text-4xl sm:text-5xl tracking-[-0.02em] leading-[1.1] font-medium text-foreground">
+            What can I <span className="italic text-[var(--tangerine)]">build</span> for you?
+          </h1>
+          <p className="mt-4 text-muted-foreground">
+            Interact with Axiom and explore the boundless creative world.
+          </p>
 
-        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {SUGGESTIONS.map((s, i) => (
-            <motion.button
-              key={s.title}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 + i * 0.05 }}
-              onClick={() => onPick(s.prompt)}
-              className="group flex items-start gap-3 rounded-lg border hairline bg-[var(--card)] p-4 text-left hover:border-[var(--tangerine)]/40 hover:glow-tangerine transition-all"
-            >
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-md shrink-0"
-                style={{ background: s.accent + '20', color: s.accent }}
+          {/* Suggestion chips — horizontal pills */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            {SUGGESTIONS.map((s, i) => (
+              <motion.button
+                key={s.title}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 + i * 0.05 }}
+                onClick={() => onPick(s.prompt)}
+                className="inline-flex items-center gap-1.5 rounded-full border hairline bg-[var(--card)] px-3.5 py-1.5 text-sm text-foreground/80 hover:border-[var(--tangerine)]/40 hover:text-[var(--tangerine)] transition-colors"
               >
-                <s.icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium">{s.title}</div>
-                <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{s.prompt}</div>
-              </div>
-            </motion.button>
-          ))}
-        </div>
-
-        <div className="mt-10 text-xs text-muted-foreground font-mono">
-          Tip: a mini-game appears while Axiom thinks. ↗
-        </div>
-      </motion.div>
+                <s.icon className="h-3.5 w-3.5" style={{ color: s.accent }} />
+                {s.title}
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
+      </div>
     </div>
   )
 }

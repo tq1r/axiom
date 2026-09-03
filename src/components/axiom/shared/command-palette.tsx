@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import {
   CommandDialog,
   CommandEmpty,
@@ -26,7 +26,6 @@ import {
 import { useNav, useChat, useStudio } from '@/lib/axiom/store'
 
 export function CommandPalette() {
-  const [open, setOpen] = useState(false)
   const {
     commandOpen,
     setCommandOpen,
@@ -42,20 +41,15 @@ export function CommandPalette() {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
-        setOpen((o) => !o)
+        setCommandOpen(!commandOpen)
       }
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') setCommandOpen(false)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
-
-  useEffect(() => {
-    setOpen(commandOpen)
-  }, [commandOpen])
+  }, [commandOpen, setCommandOpen])
 
   const onOpenChange = (v: boolean) => {
-    setOpen(v)
     setCommandOpen(v)
   }
 
@@ -78,7 +72,7 @@ export function CommandPalette() {
   }
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog open={commandOpen} onOpenChange={onOpenChange}>
       <CommandInput placeholder="Search threads, projects, actions…" />
       <CommandList className="max-h-[420px]">
         <CommandEmpty>No results found.</CommandEmpty>

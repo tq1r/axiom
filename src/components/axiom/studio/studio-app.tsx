@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels'
 import {
   Menu,
@@ -21,17 +22,22 @@ import {
   CornerDownLeft,
   FileEdit,
   Smartphone,
+  Send,
+  Loader2,
+  FolderGit2,
+  Clock,
 } from 'lucide-react'
 import { AppShell } from '../app/app-shell'
 import { FileExplorer } from './file-explorer'
 import { CodeEditor } from './code-editor'
-import { AiPanel } from './ai-panel'
 import { TerminalPanel } from './terminal-panel'
 import { InlineEditDialog } from './inline-edit-dialog'
 import { ModelBadge } from '../shared/model-badge'
 import { useNav, useStudio } from '@/lib/axiom/store'
 import { uid } from '@/lib/axiom/sample-data'
-import type { ProjectFile } from '@/lib/axiom/types'
+import { generatePlan } from '@/lib/axiom/code-generator'
+import type { GeneratedFile } from '@/lib/axiom/code-generator'
+import type { ProjectFile, AgentStep } from '@/lib/axiom/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -61,25 +67,29 @@ export function StudioApp() {
     rightPanelOpen,
     setRightPanelOpen,
     updateFile,
+    agentSteps,
+    agentRunning,
+    setAgentRunning,
+    addAgentStep,
+    updateAgentStep,
+    clearAgentSteps,
   } = useStudio()
-  const [sidebarView, setSidebarView] = useState<'explorer' | 'search' | 'git'>('explorer')
   const [bottomOpen, setBottomOpen] = useState(true)
   const [openTabs, setOpenTabs] = useState<{ id: string; name: string; path: string }[]>([])
   const [showDeploy, setShowDeploy] = useState(false)
   const [ghostText, setGhostText] = useState<string | null>(null)
   const [inlineEditOpen, setInlineEditOpen] = useState(false)
   const [selectedCode, setSelectedCode] = useState('')
+  const [chatInput, setChatInput] = useState('')
 
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0]
 
-  // Ensure there's a project
   useEffect(() => {
     if (!activeProject && projects.length === 0) {
       createProject('axiom-dashboard', 'Vite + React')
     }
   }, [])
 
-  // Find active file object
   const activeFile = useMemo(() => {
     if (!activeProject || !activeFileId) return null
     const find = (files: ProjectFile[]): ProjectFile | null => {
@@ -95,7 +105,6 @@ export function StudioApp() {
     return find(activeProject.files)
   }, [activeProject, activeFileId])
 
-  // Open a file in a tab
   const handleSelectFile = (file: ProjectFile) => {
     if (file.isDirectory) return
     setActiveFile(file.id)
@@ -103,7 +112,6 @@ export function StudioApp() {
       if (prev.find((t) => t.id === file.id)) return prev
       return [...prev, { id: file.id, name: file.name, path: file.path }]
     })
-    // Simulate ghost text after a delay
     setTimeout(() => {
       if (file.language === 'tsx' || file.language === 'typescript') {
         setGhostText('// Axiom Coder suggestion: useMemo for derived state')
@@ -125,7 +133,6 @@ export function StudioApp() {
     })
   }
 
-  // Open the first file by default
   useEffect(() => {
     if (activeProject && !activeFile && openTabs.length === 0) {
       const firstFile = findFirstFile(activeProject.files)
@@ -141,7 +148,6 @@ export function StudioApp() {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
         e.preventDefault()
-        // Use the first ~200 chars of the active file as "selected code" for the demo
         const code = activeFile?.content?.slice(0, 400) || ''
         setSelectedCode(code || '// No code selected')
         setInlineEditOpen(true)
@@ -153,21 +159,95 @@ export function StudioApp() {
 
   const handleApplyInlineEdit = (newCode: string) => {
     if (activeProjectId && activeFileId) {
-      // For the demo, prepend the new code as a comment block at the top
-      const updated = activeFile
-        ? newCode + '\n\n' + activeFile.content
-        : newCode
+      const updated = activeFile ? newCode + '\n\n' + activeFile.content : newCode
       updateFile(activeProjectId, activeFileId, updated)
     }
   }
 
   const handleDeploy = () => {
-    toast.success('Deployment started', {
-      description: 'Building and deploying to production…',
+    toast.success('Deployment started', { description: 'Building and deploying to production…' })
+    setTimeout(() => setShowDeploy(true), 1500)
+  }
+
+  // Agent chat send — uses the real code generator
+  const handleAgentSend = async () => {
+    const projectId = activeProject?.id
+    if (!chatInput.trim() || agentRunning || !projectId) return
+    const prompt = chatInput.trim()
+    setChatInput('')
+
+    const plan = generatePlan(prompt)
+
+    // Plan step
+    addAgentStep({
+      id: 's_' + uid(),
+      type: 'plan',
+      title: 'Plan',
+      detail: `I'll build: ${prompt}\n\nSteps:\n${plan.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`,
+      status: 'done',
+      timestamp: Date.now(),
     })
-    setTimeout(() => {
-      setShowDeploy(true)
-    }, 1500)
+
+    setAgentRunning(true)
+
+    let fileIndex = 0
+    for (let i = 0; i < plan.steps.length; i++) {
+      const step = plan.steps[i]
+      const stepId = 's_' + uid()
+      const isCommandStep = step.includes('Run') || step.includes('Verify')
+      const file = fileIndex < plan.files.length ? plan.files[fileIndex] : null
+
+      if (file && !isCommandStep) {
+        addAgentStep({
+          id: stepId,
+          type: 'file',
+          title: step,
+          status: 'running',
+          timestamp: Date.now(),
+          fileName: file.path,
+        })
+        await new Promise((r) => setTimeout(r, 800 + Math.random() * 500))
+        addFileToProject(projectId, file)
+        const diff = file.content.split('\n').map((line) => '+ ' + line).join('\n')
+        updateAgentStep(stepId, {
+          status: 'done',
+          diff: diff.slice(0, 800) + (diff.length > 800 ? '\n… (truncated)' : ''),
+        })
+        fileIndex++
+      } else if (isCommandStep) {
+        addAgentStep({
+          id: stepId,
+          type: 'command',
+          title: step,
+          status: 'done',
+          timestamp: Date.now(),
+          command: plan.command || 'npm run dev',
+          output: plan.commandOutput || '✓ Ready',
+        })
+        await new Promise((r) => setTimeout(r, 600))
+      } else {
+        addAgentStep({
+          id: stepId,
+          type: 'thought',
+          title: step,
+          status: 'done',
+          timestamp: Date.now(),
+        })
+        await new Promise((r) => setTimeout(r, 500))
+      }
+    }
+
+    addAgentStep({
+      id: 's_' + uid(),
+      type: 'complete',
+      title: 'Done',
+      detail: `Built ${plan.files.length} files. Open them in the editor to review.`,
+      status: 'done',
+      timestamp: Date.now(),
+    })
+
+    setAgentRunning(false)
+    toast.success('Agent finished', { description: `Created ${plan.files.length} files.` })
   }
 
   // Mobile fallback
@@ -183,153 +263,125 @@ export function StudioApp() {
   return (
     <AppShell activeView="studio" embedded>
       <div className="flex h-full">
-        {/* Activity bar */}
-        <div className="w-12 shrink-0 flex flex-col items-center py-2 gap-1 bg-sidebar border-r border-sidebar-border">
-          <ActivityIcon icon={Files} active={sidebarView === 'explorer'} onClick={() => setSidebarView('explorer')} label="Explorer" />
-          <ActivityIcon icon={Search} active={sidebarView === 'search'} onClick={() => setSidebarView('search')} label="Search" />
-          <ActivityIcon icon={GitBranch} active={sidebarView === 'git'} onClick={() => setSidebarView('git')} label="Source control" />
-          <div className="flex-1" />
-          <ActivityIcon icon={Sparkles} active={false} onClick={() => setAiPanelOpen(!aiPanelOpen)} label="AI Panel" />
-          <ActivityIcon icon={SettingsIcon} active={false} onClick={() => navigate('settings')} label="Settings" />
-        </div>
-
-        {/* Main work area with resizable panels */}
+        {/* Main work area — two panels: chat on left, code on right */}
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Top bar */}
-          <header className="flex items-center justify-between h-12 px-4 border-b border-border shrink-0 bg-background/60">
+          <header className="flex items-center justify-between h-12 px-4 border-b hairline shrink-0 bg-[var(--card)]">
             <div className="flex items-center gap-3 min-w-0">
-              <button
-                onClick={() => navigate('dashboard')}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
+              <button onClick={() => navigate('dashboard')} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Dashboard
               </button>
               <span className="text-muted-foreground">/</span>
               <span className="text-sm font-medium truncate">{activeProject?.name || 'No project'}</span>
-              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{activeProject?.template}</span>
+              <span className="text-[10px] text-muted-foreground bg-[var(--secondary)] px-1.5 py-0.5 rounded">{activeProject?.template}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 gap-1.5 text-xs"
-                onClick={() => setBottomOpen(!bottomOpen)}
-              >
+              <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={() => setBottomOpen(!bottomOpen)}>
                 <TerminalIcon className="h-3.5 w-3.5" />
                 Terminal
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 gap-1.5 text-xs"
-                onClick={() => setRightPanelOpen(!rightPanelOpen)}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                AI Panel
-              </Button>
-              <div className="h-4 w-px bg-border mx-1" />
               <ModelBadge modelId="axiom-coder" size="sm" />
-              <Button
-                size="sm"
-                className="h-8 gap-1.5 bg-foreground text-background hover:bg-foreground/90"
-                onClick={handleDeploy}
-              >
+              <Button size="sm" className="h-8 gap-1.5 bg-[var(--tangerine)] text-white hover:bg-[var(--tangerine)]/90" onClick={handleDeploy}>
                 <Rocket className="h-3.5 w-3.5" />
-                Deploy
+                Publish
               </Button>
             </div>
           </header>
 
-          {/* Resizable panels */}
+          {/* Two-panel split: chat | code editor */}
           <div className="flex-1 min-h-0">
-            <PanelGroup direction="horizontal" autoSaveId="axiom-studio-h">
-              {/* File explorer */}
-              <Panel defaultSize={16} minSize={12} maxSize={25} order={1}>
-                {activeProject && (
-                  <FileExplorer
-                    files={activeProject.files}
-                    activeFileId={activeFileId}
-                    onSelect={handleSelectFile}
-                    projectName={activeProject.name}
-                  />
-                )}
+            <PanelGroup direction="horizontal" autoSaveId="axiom-studio-split">
+              {/* LEFT: AI Chat panel */}
+              <Panel defaultSize={40} minSize={25} maxSize={55} order={1}>
+                <AgentChat
+                  steps={agentSteps}
+                  running={agentRunning}
+                  input={chatInput}
+                  setInput={setChatInput}
+                  onSend={handleAgentSend}
+                  onClear={clearAgentSteps}
+                  projectName={activeProject?.name || ''}
+                />
               </Panel>
-              <ResizeHandle />
+              <PanelResizeHandle className="w-1 bg-transparent hover:bg-[var(--tangerine)]/30 transition-colors data-[resize-handle-state=drag]:bg-[var(--tangerine)]" />
 
-              {/* Center: editor + bottom panel */}
+              {/* RIGHT: Code editor + terminal */}
               <Panel order={2} minSize={30}>
                 <PanelGroup direction="vertical" autoSaveId="axiom-studio-v">
                   <Panel defaultSize={70} minSize={30}>
-                    {/* Editor with tabs */}
                     <div className="h-full flex flex-col bg-[var(--paper-bright)]">
-                      {/* Tabs */}
-                      <div className="flex items-center h-9 border-b hairline bg-[var(--background-2)] shrink-0 overflow-x-auto scroll-thin">
-                        {openTabs.map((tab) => (
-                          <div
-                            key={tab.id}
-                            className={cn(
-                              'group flex items-center gap-2 h-full pl-3 pr-2 border-r hairline text-xs cursor-pointer transition-colors',
-                              tab.id === activeFileId
-                                ? 'bg-[var(--paper-bright)] text-foreground'
-                                : 'text-muted-foreground hover:bg-white/[0.02]'
-                            )}
-                            onClick={() => setActiveFile(tab.id)}
-                          >
-                            <FileEdit className="h-3 w-3" />
-                            {tab.name}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleCloseTab(tab.id)
-                              }}
-                              className="flex h-4 w-4 items-center justify-center rounded hover:bg-white/10 opacity-0 group-hover:opacity-100"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Editor */}
-                      <div className="flex-1 min-h-0">
-                        {activeFile ? (
-                          <CodeEditor
-                            value={activeFile.content}
-                            language={activeFile.language}
-                            onChange={(v) => activeProjectId && activeFile.id && updateFile(activeProjectId, activeFile.id, v)}
-                            ghostText={ghostText || undefined}
-                            onAcceptGhost={() => {
-                              setGhostText(null)
-                              toast.success('Suggestion accepted')
-                            }}
+                      {/* Tabs + file explorer sidebar */}
+                      <div className="flex h-full">
+                        {/* File explorer — narrow strip */}
+                        <div className="w-[200px] shrink-0 border-r hairline">
+                          <FileExplorer
+                            files={activeProject?.files || []}
+                            activeFileId={activeFileId}
+                            onSelect={handleSelectFile}
+                            projectName={activeProject?.name || ''}
                           />
-                        ) : (
-                          <div className="h-full flex items-center justify-center text-center p-6">
-                            <div>
-                              <Code2 className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
-                              <p className="text-sm font-medium">No file open</p>
-                              <p className="text-xs text-muted-foreground mt-1">Select a file from the explorer to start editing</p>
-                            </div>
+                        </div>
+
+                        {/* Editor area */}
+                        <div className="flex-1 min-w-0 flex flex-col">
+                          {/* Tab bar */}
+                          <div className="flex items-center h-9 border-b hairline bg-[var(--background-2)] shrink-0 overflow-x-auto scroll-thin">
+                            {openTabs.map((tab) => (
+                              <div
+                                key={tab.id}
+                                className={cn(
+                                  'group flex items-center gap-2 h-full pl-3 pr-2 border-r hairline text-xs cursor-pointer transition-colors',
+                                  tab.id === activeFileId
+                                    ? 'bg-[var(--paper-bright)] text-foreground'
+                                    : 'text-muted-foreground hover:bg-[var(--card)]'
+                                )}
+                                onClick={() => setActiveFile(tab.id)}
+                              >
+                                <FileEdit className="h-3 w-3" />
+                                {tab.name}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCloseTab(tab.id) }}
+                                  className="flex h-4 w-4 items-center justify-center rounded hover:bg-[var(--secondary)] opacity-0 group-hover:opacity-100"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
                           </div>
-                        )}
+
+                          {/* Editor */}
+                          <div className="flex-1 min-h-0">
+                            {activeFile ? (
+                              <CodeEditor
+                                value={activeFile.content}
+                                language={activeFile.language}
+                                onChange={(v) => activeProjectId && activeFile.id && updateFile(activeProjectId, activeFile.id, v)}
+                                ghostText={ghostText || undefined}
+                                onAcceptGhost={() => { setGhostText(null); toast.success('Suggestion accepted') }}
+                              />
+                            ) : (
+                              <div className="h-full flex items-center justify-center text-center p-6">
+                                <div>
+                                  <Code2 className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
+                                  <p className="text-sm font-medium">No file open</p>
+                                  <p className="text-xs text-muted-foreground mt-1">Select a file from the explorer</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
                       {/* Status bar */}
                       <div className="flex items-center justify-between h-6 px-3 bg-[var(--background-2)] border-t hairline text-[10px] text-muted-foreground shrink-0">
                         <div className="flex items-center gap-3">
-                          <span className="flex items-center gap-1">
-                            <GitBranch className="h-2.5 w-2.5" /> main
-                          </span>
+                          <span className="flex items-center gap-1"><GitBranch className="h-2.5 w-2.5" /> main</span>
                           <span>UTF-8</span>
-                          <span>LF</span>
                           <span className="uppercase">{activeFile?.language || 'plaintext'}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <span>Ln 1, Col 1</span>
-                          <span>Spaces: 2</span>
-                          <span className="text-accent flex items-center gap-1">
-                            <Sparkles className="h-2.5 w-2.5" /> Axiom Coder
-                          </span>
+                          <span className="text-[var(--tangerine)] flex items-center gap-1"><Sparkles className="h-2.5 w-2.5" /> Axiom Coder</span>
                         </div>
                       </div>
                     </div>
@@ -337,7 +389,7 @@ export function StudioApp() {
 
                   {bottomOpen && (
                     <>
-                      <PanelResizeHandle className="h-1 bg-transparent hover:bg-accent/30 transition-colors data-[resize-handle-state=drag]:bg-accent" />
+                      <PanelResizeHandle className="h-1 bg-transparent hover:bg-[var(--tangerine)]/30 transition-colors data-[resize-handle-state=drag]:bg-[var(--tangerine)]" />
                       <Panel defaultSize={30} minSize={10} maxSize={60}>
                         <TerminalPanel onClose={() => setBottomOpen(false)} />
                       </Panel>
@@ -345,15 +397,6 @@ export function StudioApp() {
                   )}
                 </PanelGroup>
               </Panel>
-
-              {aiPanelOpen && (
-                <>
-                  <ResizeHandle />
-                  <Panel defaultSize={24} minSize={18} maxSize={35} order={3}>
-                    <AiPanel onClose={() => setAiPanelOpen(false)} />
-                  </Panel>
-                </>
-              )}
             </PanelGroup>
           </div>
         </div>
@@ -364,13 +407,11 @@ export function StudioApp() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Deployment ready</DialogTitle>
-            <DialogDescription>
-              Your project has been built and deployed to the edge.
-            </DialogDescription>
+            <DialogDescription>Your project has been built and deployed to the edge.</DialogDescription>
           </DialogHeader>
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
+          <div className="rounded-lg border border-[var(--forest)]/30 bg-[var(--forest)]/5 p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Check className="h-4 w-4 text-emerald-400" />
+              <Check className="h-4 w-4 text-[var(--forest)]" />
               <span className="text-sm font-medium">Build succeeded</span>
             </div>
             <div className="text-xs text-muted-foreground space-y-1">
@@ -379,13 +420,13 @@ export function StudioApp() {
               <div>✓ Deployed to 18 edge regions</div>
             </div>
           </div>
-          <div className="rounded-lg border border-border bg-muted/30 p-3">
+          <div className="rounded-lg border hairline bg-[var(--secondary)]/30 p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Production URL</div>
-            <div className="font-mono text-sm text-accent">https://{activeProject?.name || 'project'}.axiom.app</div>
+            <div className="font-mono text-sm text-[var(--tangerine)]">https://{activeProject?.name || 'project'}.axiom.app</div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeploy(false)}>Close</Button>
-            <Button className="bg-foreground text-background hover:bg-foreground/90" onClick={() => setShowDeploy(false)}>
+            <Button className="bg-[var(--tangerine)] text-white hover:bg-[var(--tangerine)]/90" onClick={() => setShowDeploy(false)}>
               <Eye className="mr-2 h-4 w-4" />
               Visit site
             </Button>
@@ -393,7 +434,7 @@ export function StudioApp() {
         </DialogContent>
       </Dialog>
 
-      {/* Inline edit dialog (Cmd+I) */}
+      {/* Inline edit dialog */}
       <InlineEditDialog
         open={inlineEditOpen}
         onClose={() => setInlineEditOpen(false)}
@@ -405,44 +446,188 @@ export function StudioApp() {
   )
 }
 
-function ResizeHandle() {
-  return (
-    <PanelResizeHandle className="w-1 bg-transparent hover:bg-accent/30 transition-colors data-[resize-handle-state=drag]:bg-accent" />
-  )
-}
-
-function ActivityIcon({
-  icon: Icon,
-  active,
-  onClick,
-  label,
+// ============ AGENT CHAT (left panel of Studio) ============
+function AgentChat({
+  steps,
+  running,
+  input,
+  setInput,
+  onSend,
+  onClear,
+  projectName,
 }: {
-  icon: React.ComponentType<{ className?: string }>
-  active: boolean
-  onClick: () => void
-  label: string
+  steps: AgentStep[]
+  running: boolean
+  input: string
+  setInput: (v: string) => void
+  onSend: () => void
+  onClear: () => void
+  projectName: string
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [steps])
+
   return (
-    <TooltipProvider delayDuration={0}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={onClick}
-            className={cn(
-              'relative flex h-10 w-10 items-center justify-center rounded-md transition-colors',
-              active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent'
+    <div className="h-full flex flex-col bg-[var(--background-2)]">
+      {/* Header */}
+      <div className="flex items-center justify-between h-9 px-3 border-b hairline shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="flex h-5 w-5 items-center justify-center rounded bg-[var(--tangerine)]">
+            <Sparkles className="h-3 w-3 text-white" />
+          </div>
+          <span className="text-xs font-medium">Agent</span>
+          <ModelBadge modelId="axiom-coder" size="sm" showName={false} />
+        </div>
+        {steps.length > 0 && !running && (
+          <button onClick={onClear} className="text-[10px] text-muted-foreground hover:text-foreground">Clear</button>
+        )}
+      </div>
+
+      {/* Messages / steps */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-thin p-3">
+        {steps.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center px-4 py-8">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--tangerine)] mb-4 glow-tangerine">
+              <Sparkles className="h-6 w-6 text-white" />
+            </div>
+            <h3 className="font-serif text-lg font-medium">Build with the agent</h3>
+            <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed max-w-[220px]">
+              Describe what to build. The agent will create real files, run commands, and show diffs you can review.
+            </p>
+            <div className="mt-5 w-full space-y-1.5">
+              {['Build a shop with a shopping cart', 'Build a landing page with pricing', 'Build a todo app with localStorage'].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setInput(s)}
+                  className="w-full rounded-md border hairline bg-[var(--card)] px-2.5 py-1.5 text-[11px] text-muted-foreground text-left hover:border-[var(--tangerine)]/40 hover:text-foreground transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {steps.map((step, i) => (
+              <AgentStepCard key={step.id} step={step} index={i} />
+            ))}
+            {running && (
+              <div className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Working…
+              </div>
             )}
-          >
-            {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-accent" />}
-            <Icon className="h-5 w-5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">{label}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="p-2 border-t hairline shrink-0">
+        <div className="relative rounded-lg border hairline bg-[var(--card)] focus-within:border-[var(--tangerine)]/50 focus-within:ring-1 focus-within:ring-[var(--tangerine)]/30 transition-all">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() } }}
+            placeholder="Describe what to build…"
+            rows={2}
+            className="w-full resize-none bg-transparent px-3 pt-2.5 pb-8 text-sm placeholder:text-muted-foreground focus:outline-none"
+            style={{ minHeight: '56px', maxHeight: '120px' }}
+          />
+          <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground">Agent · Axiom Coder</span>
+            <Button
+              size="sm"
+              onClick={onSend}
+              disabled={!input.trim() || running}
+              className="h-6 w-6 p-0 bg-[var(--tangerine)] text-white hover:bg-[var(--tangerine)]/90"
+            >
+              {running ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
+// ============ AGENT STEP CARD ============
+function AgentStepCard({ step, index }: { step: AgentStep; index: number }) {
+  const [expanded, setExpanded] = useState(true)
+
+  const Icon = step.type === 'plan' ? Files
+    : step.type === 'file' ? FileEdit
+    : step.type === 'command' ? TerminalIcon
+    : step.type === 'complete' ? Check
+    : Sparkles
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className={cn(
+        'rounded-lg border bg-[var(--card)] overflow-hidden',
+        step.status === 'error' ? 'border-red-500/30' : 'hairline',
+        step.type === 'complete' && 'border-[var(--forest)]/30 bg-[var(--forest)]/5'
+      )}
+    >
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-[var(--secondary)]/50 transition-colors"
+      >
+        <div className={cn(
+          'flex h-5 w-5 items-center justify-center rounded shrink-0',
+          step.status === 'done' && step.type === 'complete' ? 'bg-[var(--forest)]/20 text-[var(--forest)]'
+          : step.status === 'done' ? 'bg-[var(--tangerine)]/20 text-[var(--tangerine)]'
+          : step.status === 'running' ? 'bg-amber-500/20 text-amber-600'
+          : step.status === 'error' ? 'bg-red-500/20 text-red-500'
+          : 'bg-[var(--secondary)] text-muted-foreground'
+        )}>
+          {step.status === 'running' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}
+        </div>
+        <span className="flex-1 text-xs font-medium truncate">{step.title}</span>
+        {step.fileName && (
+          <span className="text-[10px] font-mono text-muted-foreground bg-[var(--secondary)] px-1.5 py-0.5 rounded">{step.fileName}</span>
+        )}
+      </button>
+
+      {expanded && (step.detail || step.diff || step.output || step.command) && (
+        <div className="px-2.5 pb-2.5 pt-0 space-y-2">
+          {step.detail && (
+            <p className="text-[11px] text-muted-foreground leading-relaxed pl-7 whitespace-pre-wrap">{step.detail}</p>
+          )}
+          {step.diff && (
+            <div className="rounded border hairline bg-[var(--background-2)] overflow-hidden ml-7">
+              <pre className="p-2 text-[11px] font-mono leading-relaxed overflow-x-auto scroll-thin">
+                {step.diff.split('\n').map((line, i) => (
+                  <div key={i} className={cn(
+                    line.startsWith('+') && 'text-[var(--forest)] bg-[var(--forest)]/5',
+                    line.startsWith('-') && 'text-red-500 bg-red-500/5',
+                    !line.startsWith('+') && !line.startsWith('-') && 'text-muted-foreground'
+                  )}>{line || ' '}</div>
+                ))}
+              </pre>
+            </div>
+          )}
+          {step.command && (
+            <div className="ml-7 rounded border hairline bg-[var(--background-2)] px-2 py-1.5">
+              <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+                <TerminalIcon className="h-3 w-3" />
+                <span className="text-foreground">{step.command}</span>
+              </div>
+              {step.output && <pre className="mt-1.5 text-[10px] font-mono text-[var(--forest)] whitespace-pre-wrap">{step.output}</pre>}
+            </div>
+          )}
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+// ============ HELPERS ============
 function findFirstFile(files: ProjectFile[]): ProjectFile | null {
   for (const f of files) {
     if (f.isDirectory) {
@@ -457,25 +642,58 @@ function findFirstFile(files: ProjectFile[]): ProjectFile | null {
   return null
 }
 
+function addFileToProject(projectId: string, file: GeneratedFile) {
+  // Use the store's setState to add the file
+  const store = useStudio.getState()
+  const project = store.projects.find((p) => p.id === projectId)
+  if (!project) return
+
+  const newFile: ProjectFile = {
+    id: 'f_' + uid(),
+    name: file.path.split('/').pop() || file.path,
+    path: file.path,
+    content: file.content,
+    language: file.language,
+  }
+
+  const parts = file.path.split('/')
+  const fileName = parts.pop()!
+  const dirPath = parts
+  const updatedFiles = [...project.files]
+  let currentLevel = updatedFiles
+  let currentPath = ''
+  for (const dir of dirPath) {
+    currentPath = currentPath ? currentPath + '/' + dir : dir
+    let dirNode = currentLevel.find((f) => f.isDirectory && f.name === dir)
+    if (!dirNode) {
+      dirNode = { id: 'f_' + uid(), name: dir, path: currentPath, content: '', language: 'directory', isDirectory: true, children: [] }
+      currentLevel.push(dirNode)
+    }
+    if (!dirNode.children) dirNode.children = []
+    currentLevel = dirNode.children
+  }
+  const existing = currentLevel.find((f) => f.name === fileName && !f.isDirectory)
+  if (existing) {
+    existing.content = file.content
+  } else {
+    currentLevel.push(newFile)
+  }
+
+  useStudio.setState((s) => ({
+    projects: s.projects.map((p) => p.id === projectId ? { ...p, files: updatedFiles, updatedAt: Date.now() } : p),
+  }))
+}
+
 function MobileStudio() {
   return (
     <div className="h-full flex flex-col items-center justify-center text-center p-6">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-teal-500 mb-6">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--tangerine)] mb-6">
         <Smartphone className="h-8 w-8 text-white" />
       </div>
-      <h2 className="text-xl font-semibold">Axiom Studio is best on desktop</h2>
+      <h2 className="font-serif text-xl font-medium">Axiom Studio is best on desktop</h2>
       <p className="mt-2 text-sm text-muted-foreground max-w-xs">
-        The IDE experience needs a larger screen for the file explorer, editor, and AI panels.
-        Open this on a desktop or laptop to get the full experience.
+        The IDE needs a larger screen for the chat + code editor split. Open on a desktop to get the full experience.
       </p>
-      <Button
-        variant="outline"
-        className="mt-6"
-        onClick={() => window.location.reload()}
-      >
-        <Play className="mr-2 h-4 w-4" />
-        Try anyway
-      </Button>
     </div>
   )
 }

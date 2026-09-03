@@ -53,8 +53,18 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
   const filtered = threads.filter((t) =>
     t.title.toLowerCase().includes(search.toLowerCase())
   )
+
+  // Group threads by date — like the z.ai chat sidebar
+  const now = Date.now()
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0)
+  const startOfYesterday = new Date(startOfToday.getTime() - 86400000)
+  const thirtyDaysAgo = now - 30 * 86400000
+
   const pinned = filtered.filter((t) => t.pinned && !t.archived)
-  const recent = filtered.filter((t) => !t.pinned && !t.archived)
+  const today = filtered.filter((t) => !t.pinned && !t.archived && t.updatedAt >= startOfToday.getTime())
+  const yesterday = filtered.filter((t) => !t.pinned && !t.archived && t.updatedAt >= startOfYesterday.getTime() && t.updatedAt < startOfToday.getTime())
+  const previous = filtered.filter((t) => !t.pinned && !t.archived && t.updatedAt >= thirtyDaysAgo && t.updatedAt < startOfYesterday.getTime())
+  const older = filtered.filter((t) => !t.pinned && !t.archived && t.updatedAt < thirtyDaysAgo)
 
   const handleNew = () => {
     const id = createThread()
@@ -131,39 +141,49 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
           </div>
         </div>
 
-        {/* Thread list */}
-        <div className="flex-1 min-h-0 overflow-y-auto axiom-scroll-thin p-2">
+        {/* Thread list — grouped by date */}
+        <div className="flex-1 min-h-0 overflow-y-auto scroll-thin p-2">
           {pinned.length > 0 && (
-            <>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1.5 flex items-center gap-1">
-                <Pin className="h-3 w-3" /> Pinned
-              </div>
+            <DateGroup label="Pinned" icon={<Pin className="h-3 w-3" />}>
               {pinned.map((t) => (
-                <ThreadItem
-                  key={t.id}
-                  thread={t}
-                  active={t.id === activeThreadId}
-                  editing={editingId === t.id}
-                  editValue={editValue}
-                  onEditChange={setEditValue}
-                  onCommitEdit={commitEdit}
-                  onSelect={() => {
-                    setActiveThread(t.id)
-                    onClose()
-                  }}
-                  onPin={() => togglePin(t.id)}
-                  onDelete={() => deleteThread(t.id)}
-                  onArchive={() => archiveThread(t.id)}
-                  onRename={() => startEdit(t.id, t.title)}
-                />
+                <ThreadItem key={t.id} thread={t} active={t.id === activeThreadId} editing={editingId === t.id} editValue={editValue} onEditChange={setEditValue} onCommitEdit={commitEdit} onSelect={() => { setActiveThread(t.id); onClose() }} onPin={() => togglePin(t.id)} onDelete={() => deleteThread(t.id)} onArchive={() => archiveThread(t.id)} onRename={() => startEdit(t.id, t.title)} />
               ))}
-            </>
+            </DateGroup>
           )}
 
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1.5 mt-1">
-            Recent
-          </div>
-          {recent.length === 0 ? (
+          {today.length > 0 && (
+            <DateGroup label="Today">
+              {today.map((t) => (
+                <ThreadItem key={t.id} thread={t} active={t.id === activeThreadId} editing={editingId === t.id} editValue={editValue} onEditChange={setEditValue} onCommitEdit={commitEdit} onSelect={() => { setActiveThread(t.id); onClose() }} onPin={() => togglePin(t.id)} onDelete={() => deleteThread(t.id)} onArchive={() => archiveThread(t.id)} onRename={() => startEdit(t.id, t.title)} />
+              ))}
+            </DateGroup>
+          )}
+
+          {yesterday.length > 0 && (
+            <DateGroup label="Yesterday">
+              {yesterday.map((t) => (
+                <ThreadItem key={t.id} thread={t} active={t.id === activeThreadId} editing={editingId === t.id} editValue={editValue} onEditChange={setEditValue} onCommitEdit={commitEdit} onSelect={() => { setActiveThread(t.id); onClose() }} onPin={() => togglePin(t.id)} onDelete={() => deleteThread(t.id)} onArchive={() => archiveThread(t.id)} onRename={() => startEdit(t.id, t.title)} />
+              ))}
+            </DateGroup>
+          )}
+
+          {previous.length > 0 && (
+            <DateGroup label="Previous 30 days">
+              {previous.map((t) => (
+                <ThreadItem key={t.id} thread={t} active={t.id === activeThreadId} editing={editingId === t.id} editValue={editValue} onEditChange={setEditValue} onCommitEdit={commitEdit} onSelect={() => { setActiveThread(t.id); onClose() }} onPin={() => togglePin(t.id)} onDelete={() => deleteThread(t.id)} onArchive={() => archiveThread(t.id)} onRename={() => startEdit(t.id, t.title)} />
+              ))}
+            </DateGroup>
+          )}
+
+          {older.length > 0 && (
+            <DateGroup label="Older">
+              {older.map((t) => (
+                <ThreadItem key={t.id} thread={t} active={t.id === activeThreadId} editing={editingId === t.id} editValue={editValue} onEditChange={setEditValue} onCommitEdit={commitEdit} onSelect={() => { setActiveThread(t.id); onClose() }} onPin={() => togglePin(t.id)} onDelete={() => deleteThread(t.id)} onArchive={() => archiveThread(t.id)} onRename={() => startEdit(t.id, t.title)} />
+              ))}
+            </DateGroup>
+          )}
+
+          {filtered.length === 0 && (
             <div className="px-2 py-8 text-center">
               <MessageSquare className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
               <p className="text-xs text-muted-foreground">
@@ -175,26 +195,6 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
                 </Button>
               )}
             </div>
-          ) : (
-            recent.map((t) => (
-              <ThreadItem
-                key={t.id}
-                thread={t}
-                active={t.id === activeThreadId}
-                editing={editingId === t.id}
-                editValue={editValue}
-                onEditChange={setEditValue}
-                onCommitEdit={commitEdit}
-                onSelect={() => {
-                  setActiveThread(t.id)
-                  onClose()
-                }}
-                onPin={() => togglePin(t.id)}
-                onDelete={() => deleteThread(t.id)}
-                onArchive={() => archiveThread(t.id)}
-                onRename={() => startEdit(t.id, t.title)}
-              />
-            ))
           )}
         </div>
 
@@ -210,6 +210,18 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
         </div>
       </aside>
     </>
+  )
+}
+
+function DateGroup({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="mb-1">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1.5 flex items-center gap-1">
+        {icon}
+        {label}
+      </div>
+      {children}
+    </div>
   )
 }
 
