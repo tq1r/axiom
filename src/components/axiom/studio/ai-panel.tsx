@@ -7,6 +7,8 @@ import {
   Send,
   X,
   Check,
+  CheckCircle2,
+  XCircle,
   Loader2,
   FileEdit,
   Terminal,
@@ -39,6 +41,30 @@ const CONTEXT_MENTIONS = [
   { id: 'docs', label: '@docs', desc: 'Search official documentation', icon: Brain },
   { id: 'terminal', label: '@terminal', desc: 'Include terminal output as context', icon: Terminal },
 ]
+
+// Approval gate mechanism — command steps pause here until the user clicks Approve/Reject
+const approvalResolvers = new Map<string, { resolve: (v: boolean) => void }>()
+
+function waitForApproval(stepId: string): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    approvalResolvers.set(stepId, { resolve })
+    // Auto-approve after 8s for demo smoothness (real product would wait indefinitely)
+    setTimeout(() => {
+      if (approvalResolvers.has(stepId)) {
+        approvalResolvers.delete(stepId)
+        resolve(true)
+      }
+    }, 8000)
+  })
+}
+
+function resolveApproval(stepId: string, approved: boolean) {
+  const entry = approvalResolvers.get(stepId)
+  if (entry) {
+    approvalResolvers.delete(stepId)
+    entry.resolve(approved)
+  }
+}
 
 const AGENT_PLANS: Record<string, string[]> = {
   'landing': [
@@ -138,11 +164,24 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
           diff: generateSampleDiff(step),
         })
       } else if (isCommandStep) {
-        // Command needs approval
+        // Command needs approval — pause until user approves
         updateAgentStep(stepId, {
-          status: 'done',
-          output: '✓ Ready in 412ms\n  Local: http://localhost:5173\n  Network: use --host to expose',
+          status: 'pending',
+          detail: 'Approval required to run this command in the sandbox.',
         })
+        // Wait for approval (max 60s then auto-approve for demo)
+        const approved = await waitForApproval(stepId)
+        if (approved) {
+          updateAgentStep(stepId, { status: 'running', detail: undefined })
+          await new Promise((r) => setTimeout(r, 800))
+          updateAgentStep(stepId, {
+            status: 'done',
+            output: '✓ Ready in 412ms\n  Local: http://localhost:5173\n  Network: use --host to expose',
+          })
+        } else {
+          updateAgentStep(stepId, { status: 'error', detail: 'Command rejected by user.' })
+          break
+        }
       } else {
         updateAgentStep(stepId, { status: 'done' })
       }
@@ -339,13 +378,22 @@ function EmptyAgent() {
 
 function StepCard({ step, index, onUndo, isLast }: { step: AgentStep; index: number; onUndo: () => void; isLast: boolean }) {
   const [expanded, setExpanded] = useState(true)
-  const [showApproval, setShowApproval] = useState(step.type === 'command' && step.status === 'running')
+  const isPendingApproval = step.type === 'command' && step.status === 'pending'
 
   const Icon = step.type === 'plan' ? ListChecks
     : step.type === 'file' ? FileEdit
     : step.type === 'command' ? Terminal
     : step.type === 'complete' ? Check
     : Brain
+
+  const handleApprove = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    resolveApproval(step.id, true)
+  }
+  const handleReject = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    resolveApproval(step.id, false)
+  }
 
   return (
     <motion.div
@@ -368,13 +416,18 @@ function StepCard({ step, index, onUndo, isLast }: { step: AgentStep; index: num
           step.status === 'done' && step.type === 'complete' ? 'bg-emerald-500/20 text-emerald-400'
           : step.status === 'done' ? 'bg-accent/20 text-accent'
           : step.status === 'running' ? 'bg-yellow-500/20 text-yellow-400'
+          : step.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400'
           : step.status === 'error' ? 'bg-red-500/20 text-red-400'
           : 'bg-muted text-muted-foreground'
         )}>
           {step.status === 'running' ? (
             <Loader2 className="h-3 w-3 animate-spin" />
+          ) : step.status === 'pending' ? (
+            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse" />
           ) : step.status === 'done' ? (
             <Check className="h-3 w-3" />
+          ) : step.status === 'error' ? (
+            <XCircle className="h-3 w-3" />
           ) : (
             <Icon className="h-3 w-3" />
           )}
@@ -425,13 +478,42 @@ function StepCard({ step, index, onUndo, isLast }: { step: AgentStep; index: num
                 </div>
               )}
               {step.command && (
-                <div className="ml-7 rounded border border-sidebar-border bg-[#0d0d0f] px-2 py-1.5">
+                <div className={cn(
+                  'ml-7 rounded border px-2 py-1.5',
+                  isPendingApproval ? 'border-yellow-500/40 bg-yellow-500/5' : 'border-sidebar-border bg-[#0d0d0f]'
+                )}>
                   <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
                     <Terminal className="h-3 w-3" />
                     <span className="text-foreground">{step.command}</span>
                   </div>
                   {step.output && (
                     <pre className="mt-1.5 text-[10px] font-mono text-emerald-400 whitespace-pre-wrap">{step.output}</pre>
+                  )}
+                  {isPendingApproval && (
+                    <div className="mt-2 pt-2 border-t border-yellow-500/20">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-yellow-400 flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                          Approval required
+                        </span>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={handleReject}
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-sidebar-border text-muted-foreground hover:text-red-400 hover:border-red-500/40 transition-colors"
+                          >
+                            <XCircle className="h-3 w-3" />
+                            Reject
+                          </button>
+                          <button
+                            onClick={handleApprove}
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors border border-emerald-500/30"
+                          >
+                            <CheckCircle2 className="h-3 w-3" />
+                            Approve
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

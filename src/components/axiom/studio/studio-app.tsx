@@ -27,6 +27,7 @@ import { FileExplorer } from './file-explorer'
 import { CodeEditor } from './code-editor'
 import { AiPanel } from './ai-panel'
 import { TerminalPanel } from './terminal-panel'
+import { InlineEditDialog } from './inline-edit-dialog'
 import { ModelBadge } from '../shared/model-badge'
 import { useNav, useStudio } from '@/lib/axiom/store'
 import { uid } from '@/lib/axiom/sample-data'
@@ -66,6 +67,8 @@ export function StudioApp() {
   const [openTabs, setOpenTabs] = useState<{ id: string; name: string; path: string }[]>([])
   const [showDeploy, setShowDeploy] = useState(false)
   const [ghostText, setGhostText] = useState<string | null>(null)
+  const [inlineEditOpen, setInlineEditOpen] = useState(false)
+  const [selectedCode, setSelectedCode] = useState('')
 
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0]
 
@@ -132,6 +135,31 @@ export function StudioApp() {
       }
     }
   }, [activeProject])
+
+  // Cmd+I inline edit shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+        e.preventDefault()
+        // Use the first ~200 chars of the active file as "selected code" for the demo
+        const code = activeFile?.content?.slice(0, 400) || ''
+        setSelectedCode(code || '// No code selected')
+        setInlineEditOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeFile])
+
+  const handleApplyInlineEdit = (newCode: string) => {
+    if (activeProjectId && activeFileId) {
+      // For the demo, prepend the new code as a comment block at the top
+      const updated = activeFile
+        ? newCode + '\n\n' + activeFile.content
+        : newCode
+      updateFile(activeProjectId, activeFileId, updated)
+    }
+  }
 
   const handleDeploy = () => {
     toast.success('Deployment started', {
@@ -364,6 +392,15 @@ export function StudioApp() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Inline edit dialog (Cmd+I) */}
+      <InlineEditDialog
+        open={inlineEditOpen}
+        onClose={() => setInlineEditOpen(false)}
+        selectedCode={selectedCode}
+        fileName={activeFile?.path}
+        onApply={handleApplyInlineEdit}
+      />
     </AppShell>
   )
 }

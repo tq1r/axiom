@@ -351,3 +351,56 @@
 .axiom-prose hr {
   @apply my-4 border-border;
 }
+
+/* KaTeX-style math rendering */
+.axiom-math {
+  font-family: 'JetBrains Mono', 'Cambria Math', serif;
+  font-style: italic;
+  white-space: nowrap;
+}
+.axiom-math-display {
+  display: block;
+  text-align: center;
+  margin: 1rem 0;
+  font-size: 1.1em;
+  overflow-x: auto;
+}
+.axiom-math-frac {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  margin: 0 0.15em;
+}
+.axiom-math-num {
+  border-bottom: 1px solid currentColor;
+  padding: 0 0.3em;
+  line-height: 1.2;
+}
+.axiom-math-den {
+  padding: 0 0.3em;
+  line-height: 1.2;
+}
+.axiom-math-sqrt {
+  border-top: 1px solid currentColor;
+  padding: 0 0.2em 0 0.4em;
+  position: relative;
+}
+.axiom-math-sqrt::before {
+  content: '√';
+  position: absolute;
+  left: -0.1em;
+  top: 0;
+  font-size: 1.1em;
+}
+
+/* Mermaid diagram block */
+.axiom-mermaid {
+  @apply my-4 rounded-lg border border-border bg-muted/20 p-6 text-center;
+}
+.axiom-mermaid-label {
+  @apply text-[10px] uppercase tracking-wider text-muted-foreground mb-3 block;
+}
+.axiom-mermaid svg {
+  margin: 0 auto;
+}

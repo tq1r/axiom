@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Check, Copy, Code2, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { Math as MathExpr } from './math'
+import { MermaidDiagram } from './mermaid'
 
 interface MarkdownProps {
   content: string
@@ -105,6 +107,10 @@ export function Markdown({ content, streaming }: MarkdownProps) {
   const { navigate } = useNav()
   const { createProject, setActiveProject, setActiveFile } = useStudio()
 
+  // Preprocess: split content into math and non-math segments so we can render
+  // $$...$$ as display math and $...$ as inline math.
+  const segments = useMemo(() => preprocessMath(content), [content])
+
   const components = useMemo(
     () => ({
       code({ inline, className, children, ...props }: any) {
@@ -118,6 +124,11 @@ export function Markdown({ content, streaming }: MarkdownProps) {
               {children}
             </code>
           )
+        }
+
+        // Mermaid diagrams
+        if (lang === 'mermaid') {
+          return <MermaidDiagram code={code} />
         }
 
         return <CodeBlock code={code} lang={lang} onOpenInStudio={() => setOpenInStudioCode({ code, lang })} />
@@ -152,7 +163,19 @@ export function Markdown({ content, streaming }: MarkdownProps) {
   return (
     <>
       <div className="axiom-prose">
-        <ReactMarkdown components={components as any}>{content}</ReactMarkdown>
+        {segments.map((seg, i) => {
+          if (seg.type === 'display-math') {
+            return <MathExpr key={i} expression={seg.content} display />
+          }
+          if (seg.type === 'inline-math') {
+            return <MathExpr key={i} expression={seg.content} />
+          }
+          return (
+            <ReactMarkdown key={i} components={components as any}>
+              {seg.content}
+            </ReactMarkdown>
+          )
+        })}
         {streaming && <span className="inline-block w-2 h-4 bg-accent ml-0.5 animate-pulse rounded-sm" />}
       </div>
 
@@ -242,4 +265,85 @@ function CodeBlock({ code, lang, onOpenInStudio }: { code: string; lang: string;
       </div>
     </div>
   )
+}
+
+/**
+ * Split content into segments: display math ($$...$$), inline math ($...$),
+ * and regular markdown text. Avoids splitting inside code spans and fenced blocks.
+ */
+function preprocessMath(content: string): Array<{ type: 'text' | 'display-math' | 'inline-math'; content: string }> {
+  const segments: Array<{ type: 'text' | 'display-math' | 'inline-math'; content: string }> = []
+  let remaining = content
+
+  while (remaining.length > 0) {
+    // Find the next code fence or inline code — we must not process math inside code
+    const fenceStart = remaining.search(/```/)
+    const inlineCodeStart = remaining.search(/(?<!`)`[^`]/)
+
+    // Find display math $$...$$
+    const displayStart = remaining.indexOf('$$')
+    // Find inline math $...$  (not preceded by $, not $$ )
+    const inlineMatch = remaining.match(/(?<!\$)\$(?!\$)([^\$\n]+?)\$/)
+
+    // Determine which comes first
+    const candidates: Array<{ idx: number; type: 'fence' | 'inline-code' | 'display' | 'inline' }> = []
+    if (fenceStart >= 0) candidates.push({ idx: fenceStart, type: 'fence' })
+    if (inlineCodeStart >= 0) candidates.push({ idx: inlineCodeStart, type: 'inline-code' })
+    if (displayStart >= 0) candidates.push({ idx: displayStart, type: 'display' })
+    if (inlineMatch && inlineMatch.index !== undefined) candidates.push({ idx: inlineMatch.index, type: 'inline' })
+
+    if (candidates.length === 0) {
+      segments.push({ type: 'text', content: remaining })
+      break
+    }
+
+    candidates.sort((a, b) => a.idx - b.idx)
+    const first = candidates[0]
+
+    // Emit any text before this segment
+    if (first.idx > 0) {
+      segments.push({ type: 'text', content: remaining.slice(0, first.idx) })
+      remaining = remaining.slice(first.idx)
+    }
+
+    if (first.type === 'fence') {
+      // Find the closing fence
+      const closeIdx = remaining.indexOf('```', 3)
+      const end = closeIdx >= 0 ? closeIdx + 3 : remaining.length
+      segments.push({ type: 'text', content: remaining.slice(0, end) })
+      remaining = remaining.slice(end)
+    } else if (first.type === 'inline-code') {
+      // Find the closing backtick
+      const closeIdx = remaining.indexOf('`', 1)
+      const end = closeIdx >= 0 ? closeIdx + 1 : remaining.length
+      segments.push({ type: 'text', content: remaining.slice(0, end) })
+      remaining = remaining.slice(end)
+    } else if (first.type === 'display') {
+      // $$...$$
+      const closeIdx = remaining.indexOf('$$', 2)
+      if (closeIdx >= 0) {
+        segments.push({ type: 'display-math', content: remaining.slice(2, closeIdx).trim() })
+        remaining = remaining.slice(closeIdx + 2)
+      } else {
+        // No closing — treat as text
+        segments.push({ type: 'text', content: remaining })
+        break
+      }
+    } else if (first.type === 'inline' && inlineMatch) {
+      segments.push({ type: 'inline-math', content: inlineMatch[1].trim() })
+      remaining = remaining.slice(inlineMatch.index! + inlineMatch[0].length)
+    }
+  }
+
+  // Merge adjacent text segments for efficiency
+  const merged: typeof segments = []
+  for (const seg of segments) {
+    const last = merged[merged.length - 1]
+    if (last && last.type === 'text' && seg.type === 'text') {
+      last.content += seg.content
+    } else {
+      merged.push({ ...seg })
+    }
+  }
+  return merged
 }

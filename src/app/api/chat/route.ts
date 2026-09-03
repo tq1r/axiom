@@ -261,11 +261,62 @@ In practice, this means:
 | Easier testing | Indirection can obscure bugs |
 | Independent scaling | Versioning complexity |
 
+## A quick visualization
+
+\`\`\`mermaid
+graph LR
+  A[Producer] --> B{Schema}
+  B --> C[Consumer]
+  B --> D[Consumer 2]
+\`\`\`
+
+## The math behind it
+
+If we model the contract as a probability of compatibility $P(c)$, the expected number of successful interactions over $n$ calls is:
+
+$$E[n] = \\sum_{i=1}^{n} P(c_i) = n \\cdot P(c)$$
+
+where $P(c) \\approx 1 - \\frac{\\Delta s}{s_{total}}$ and $\\Delta s$ is the schema drift.
+
 ## When to use this
 
 Reach for this pattern when you have **two systems owned by different teams** that need to communicate. If it's all one codebase, simpler approaches often win.
 
 Want me to go deeper on any of these layers?`
+  }
+
+  if (msg.includes('math') || msg.includes('equation') || msg.includes('formula') || msg.includes('calculate')) {
+    return `Sure — here's how to approach the math.
+
+## Setting up the problem
+
+Let's say we want to find the roots of a quadratic equation $ax^2 + bx + c = 0$. The classic formula is:
+
+$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
+
+The discriminant $\\Delta = b^2 - 4ac$ tells us everything:
+
+- If $\\Delta > 0$: two distinct real roots
+- If $\\Delta = 0$: one repeated real root
+- If $\\Delta < 0$: two complex conjugate roots
+
+## Worked example
+
+Take $x^2 - 5x + 6 = 0$. Here $a = 1$, $b = -5$, $c = 6$:
+
+$$\\Delta = (-5)^2 - 4(1)(6) = 25 - 24 = 1$$
+
+$$x = \\frac{5 \\pm \\sqrt{1}}{2} = \\frac{5 \\pm 1}{2}$$
+
+So $x_1 = 3$ and $x_2 = 2$. ✓
+
+## Generalizing
+
+For a system of equations, we can express the solution in matrix form $Ax = b$ where $A \\in \\mathbb{R}^{n \\times n}$. The solution exists and is unique when $\\det(A) \\neq 0$:
+
+$$x = A^{-1}b$$
+
+Want me to walk through a specific problem you're working on?`
   }
 
   if (msg.includes('write') || msg.includes('email') || msg.includes('blog') || msg.includes('article')) {

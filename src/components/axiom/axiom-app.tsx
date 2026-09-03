@@ -11,6 +11,7 @@ import { ModelsPage } from './models/models-page'
 import { PricingPage } from './pricing/pricing-page'
 import { SettingsPage } from './settings/settings-page'
 import { CommandPalette } from './shared/command-palette'
+import { KeyboardShortcuts } from './shared/keyboard-shortcuts'
 
 export function AxiomApp() {
   const { view } = useNav()
@@ -44,6 +45,7 @@ export function AxiomApp() {
       {view === 'pricing' && <PricingPage />}
       {view === 'settings' && <SettingsPage />}
       <CommandPalette />
+      <KeyboardShortcuts />
     </>
   )
 }
