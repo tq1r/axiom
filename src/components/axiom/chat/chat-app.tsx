@@ -21,7 +21,6 @@ import {
   Gamepad2,
   X,
 } from 'lucide-react'
-import { AppShell } from '../app/app-shell'
 import { ChatSidebar } from './chat-sidebar'
 import { ChatComposer } from './chat-composer'
 import { Markdown } from './markdown'
@@ -259,31 +258,30 @@ export function ChatApp() {
   const hasMessages = activeThread && activeThread.messages.length > 0
 
   return (
-    <AppShell activeView="chat" embedded>
-      <div className="flex h-full">
-        <ChatSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
+      <ChatSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Top bar */}
-          <header className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0 bg-background/60 backdrop-blur">
-            <div className="flex items-center gap-2 min-w-0">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-              >
-                <Menu className="h-4 w-4" />
-              </button>
-              <div className="min-w-0">
-                <h1 className="text-sm font-medium truncate">
-                  {activeThread?.title || 'New conversation'}
-                </h1>
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  {activeThread && <ModelBadge modelId={activeThread.modelId} size="sm" />}
-                  <span>·</span>
-                  <span>{activeThread?.messages.length || 0} messages</span>
-                </div>
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar */}
+        <header className="flex items-center justify-between h-14 px-4 border-b hairline shrink-0 bg-[var(--card)]">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--secondary)]"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-sm font-medium truncate">
+                {activeThread?.title || 'New conversation'}
+              </h1>
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                {activeThread && <ModelBadge modelId={activeThread.modelId} size="sm" />}
+                <span>·</span>
+                <span>{activeThread?.messages.length || 0} messages</span>
               </div>
             </div>
+          </div>
             <div className="flex items-center gap-1">
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
@@ -364,9 +362,8 @@ export function ChatApp() {
             isStreaming={isStreaming}
             placeholder={hasMessages ? 'Reply to Axiom…' : 'Ask anything to start…'}
           />
-        </div>
       </div>
-    </AppShell>
+    </div>
   )
 }
 

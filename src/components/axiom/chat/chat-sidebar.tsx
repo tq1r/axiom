@@ -13,6 +13,8 @@ import {
   Archive,
   MoreHorizontal,
   X,
+  ArrowLeft,
+  Code2,
   Check,
 } from 'lucide-react'
 import { useNav, useChat } from '@/lib/axiom/store'
@@ -101,26 +103,26 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
 
       <aside
         className={cn(
-          'fixed lg:relative z-40 lg:z-auto inset-y-0 left-0 w-[280px] flex flex-col bg-sidebar border-r border-sidebar-border transition-transform duration-200',
+          'fixed lg:relative z-40 lg:z-auto inset-y-0 left-0 w-[260px] flex flex-col bg-[var(--sidebar)] border-r hairline transition-transform duration-200',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between h-14 px-3 border-b border-sidebar-border shrink-0">
-          <button onClick={() => navigate('dashboard')} className="px-1">
+        {/* Header — logo + close on mobile */}
+        <div className="flex items-center justify-between h-14 px-4 border-b hairline shrink-0">
+          <button onClick={() => navigate('dashboard')}>
             <AxiomLogo size={24} />
           </button>
           <div className="flex items-center gap-1">
             <button
               onClick={handleNew}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--secondary)] hover:text-foreground transition-colors"
               title="New chat"
             >
               <Plus className="h-4 w-4" />
             </button>
             <button
               onClick={onClose}
-              className="lg:hidden flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+              className="lg:hidden flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--secondary)] hover:text-foreground transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -128,7 +130,7 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
         </div>
 
         {/* Search */}
-        <div className="p-2 border-b border-sidebar-border shrink-0">
+        <div className="p-3 border-b hairline shrink-0">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
@@ -136,7 +138,7 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search conversations…"
-              className="w-full h-9 pl-8 pr-3 rounded-md border border-sidebar-border bg-sidebar-accent/50 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent"
+              className="w-full h-9 pl-8 pr-3 rounded-md border hairline bg-[var(--card)] text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[var(--tangerine)]"
             />
           </div>
         </div>
@@ -198,14 +200,21 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-2 border-t border-sidebar-border shrink-0">
+        {/* Footer — navigation back */}
+        <div className="p-2 border-t hairline shrink-0 space-y-0.5">
           <button
             onClick={() => navigate('dashboard')}
-            className="w-full flex items-center gap-2 h-9 px-3 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+            className="w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-sm text-muted-foreground hover:bg-[var(--secondary)] hover:text-foreground transition-colors"
           >
-            <MessageSquare className="h-3.5 w-3.5" />
+            <ArrowLeft className="h-4 w-4" />
             Back to dashboard
+          </button>
+          <button
+            onClick={() => navigate('studio')}
+            className="w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-sm text-muted-foreground hover:bg-[var(--secondary)] hover:text-foreground transition-colors"
+          >
+            <Code2 className="h-4 w-4" />
+            Go to Studio
           </button>
         </div>
       </aside>

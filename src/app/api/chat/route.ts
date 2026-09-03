@@ -156,6 +156,12 @@ export async function POST(req: NextRequest) {
 function simulateResponse(userMessage: string, modelName: string): string {
   const msg = userMessage.toLowerCase()
 
+  // Math detection — actually compute the answer
+  const mathResult = tryMath(userMessage)
+  if (mathResult !== null) {
+    return mathResult
+  }
+
   if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
     return `Hello! I'm **Axiom**, running on ${modelName}. I can help you write code, analyze data, brainstorm ideas, explain concepts, and much more.
 
@@ -380,4 +386,63 @@ The most common mistake people make here is optimizing for the wrong thing. They
 This is running on **${modelName}**. If you'd like deeper reasoning or a faster response, you can switch models using the picker in the composer below.
 
 What specific part would you like me to expand on?`
+}
+
+/**
+ * Detect math questions and actually compute the answer.
+ * Handles: "what is 5 * 3", "100/4", "2 + 2", "10 times 1039", etc.
+ */
+function tryMath(message: string): string | null {
+  const msg = message.toLowerCase().trim()
+
+  // Try to extract a math expression from the message
+  // Pattern 1: direct expression like "1234 / 56" or "2 + 2"
+  // Pattern 2: word form like "what is 10 times 1039" or "what's 10020283/12"
+
+  // Replace word operators with symbols
+  let expr = msg
+    .replace(/\btimes\b|\bmultiplied by\b/g, '*')
+    .replace(/\bdivided by\b/g, '/')
+    .replace(/\bplus\b/g, '+')
+    .replace(/\bminus\b/g, '-')
+    .replace(/\bover\b/g, '/')
+    .replace(/\bsquared\b/g, '**2')
+    .replace(/\bcubed\b/g, '**3')
+
+  // Try to find a math expression in the message
+  // Look for patterns like: number op number op number...
+  const mathMatch = expr.match(/(-?\d+\.?\d*(?:\s*[*+\-/]\s*-?\d+\.?\d*)+(?:\s*[*+\-/]\s*-?\d+\.?\d*)*)|(?:\d+\.?\d*\s*\*\*\s*\d+\.?\d*)/)
+  if (!mathMatch) return null
+
+  const expression = mathMatch[0].replace(/\s/g, '')
+
+  try {
+    // Only allow digits, operators, decimals, and parentheses
+    if (!/^[\d+\-*/.()\s]+$/.test(expression)) return null
+
+    // Evaluate safely (no eval — use Function with restricted scope)
+    const result = Function('"use strict"; return (' + expression + ')')()
+
+    if (typeof result !== 'number' || !isFinite(result)) return null
+
+    // Format the result nicely
+    let formatted: string
+    if (Number.isInteger(result)) {
+      formatted = result.toLocaleString('en-US')
+    } else {
+      formatted = result.toLocaleString('en-US', { maximumFractionDigits: 10 })
+    }
+
+    return `**${expression} = ${formatted}**
+
+Let me verify:
+
+\`\`\`
+${expression} = ${formatted}
+\`\`\`
+
+Want me to break down the steps, or is there another calculation I can help with?`
+  } catch {
+    return null
+  }
 }

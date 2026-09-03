@@ -61,45 +61,10 @@ const LANGUAGE_LABELS: Record<string, string> = {
   xml: 'XML',
 }
 
-// Very lightweight syntax highlighting — colors common tokens.
+// Use the proper single-pass tokenizer to avoid HTML corruption
+import { highlightCode as highlightTokens } from '@/lib/axiom/highlight'
 function highlightCode(code: string, lang: string): string {
-  // We do token-based replacement on spans, being careful to avoid HTML injection.
-  // First, escape HTML.
-  let out = code
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-
-  // Comments
-  if (['ts', 'tsx', 'js', 'jsx', 'typescript', 'javascript', 'go', 'rust', 'java', 'c', 'cpp', 'csharp', 'cs', 'swift', 'kt', 'scss', 'css', 'graphql'].includes(lang)) {
-    out = out.replace(/(\/\/[^\n]*)/g, '<span style="color: var(--muted-foreground); font-style: italic;">$1</span>')
-  }
-  if (['py', 'python', 'rb', 'ruby', 'sh', 'bash', 'shell', 'yaml', 'yml', 'toml'].includes(lang)) {
-    out = out.replace(/(#[^\n]*)/g, '<span style="color: var(--muted-foreground); font-style: italic;">$1</span>')
-  }
-
-  // Strings
-  out = out.replace(/(['"`])(?:(?=(\\?))\2.)*?\1/g, (m) => `<span style="color: var(--forest);">${m}</span>`)
-
-  // Keywords
-  const keywords = ['import', 'export', 'from', 'default', 'const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'class', 'extends', 'implements', 'interface', 'type', 'enum', 'async', 'await', 'new', 'try', 'catch', 'finally', 'throw', 'switch', 'case', 'break', 'continue', 'this', 'super', 'static', 'public', 'private', 'protected', 'readonly', 'get', 'set', 'void', 'null', 'undefined', 'true', 'false', 'def', 'print', 'func', 'fn', 'let', 'mut', 'pub', 'struct', 'impl', 'trait', 'use', 'match', 'self']
-  const kwRegex = new RegExp(`\\b(${keywords.join('|')})\\b`, 'g')
-  out = out.replace(kwRegex, '<span style="color: var(--tangerine); font-weight: 500;">$1</span>')
-
-  // Numbers
-  out = out.replace(/\b(\d+\.?\d*)\b/g, '<span style="color: var(--ochre);">$1</span>')
-
-  // Booleans / nulls (already covered above, but ensure not double-wrapped by limiting)
-
-  // Function calls (word followed by paren)
-  out = out.replace(/\b([a-zA-Z_$][\w$]*)(\s*\()/g, '<span style="color: #4A6FA5;">$1</span>$2')
-
-  // JSX tags
-  if (['tsx', 'jsx'].includes(lang)) {
-    out = out.replace(/(&lt;\/?)([A-Za-z][\w.]*)/g, '$1<span style="color: var(--tangerine);">$2</span>')
-  }
-
-  return out
+  return highlightTokens(code, lang)
 }
 
 export function Markdown({ content, streaming }: MarkdownProps) {
