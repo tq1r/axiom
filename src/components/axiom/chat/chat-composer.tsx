@@ -305,7 +305,7 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
                   size="sm"
                   onClick={handleSend}
                   disabled={!text.trim() || disabled}
-                  className="h-8 w-8 p-0 bg-foreground text-background hover:bg-foreground/90"
+                  className="h-8 w-8 p-0 bg-[var(--tangerine)] text-white hover:bg-[var(--tangerine)]/90"
                 >
                   <ArrowUp className="h-4 w-4" />
                 </Button>

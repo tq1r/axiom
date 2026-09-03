@@ -11,12 +11,9 @@ interface LogoProps {
 
 export function AxiomLogo({ size = 28, className, showWordmark = true, withGlow = false }: LogoProps) {
   return (
-    <div className={cn('flex items-center gap-2.5', className)}>
+    <div className={cn('flex items-center gap-2', className)}>
       <div
-        className={cn(
-          'relative flex items-center justify-center rounded-[10px]',
-          withGlow && 'axiom-glow-sm'
-        )}
+        className={cn('relative flex items-center justify-center')}
         style={{ width: size, height: size }}
       >
         <svg
@@ -26,27 +23,32 @@ export function AxiomLogo({ size = 28, className, showWordmark = true, withGlow 
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <defs>
-            <linearGradient id="axiom-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#6366F1" />
-              <stop offset="0.5" stopColor="#818CF8" />
-              <stop offset="1" stopColor="#22D3EE" />
-            </linearGradient>
-          </defs>
-          {/* Geometric A / spark glyph */}
+          {/* Hand-drawn style A glyph with tangerine ink */}
           <path
-            d="M16 3L28 27H22.5L16 12.5L9.5 27H4L16 3Z"
-            fill="url(#axiom-grad)"
+            d="M5 27L16 4L27 27"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-foreground"
+            fill="none"
           />
+          {/* The crossbar — tangerine, slightly off-center for character */}
           <path
-            d="M12 21H20V24.5H12V21Z"
-            fill="url(#axiom-grad)"
+            d="M10.5 20.5L21.5 20.5"
+            stroke="var(--tangerine)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
           />
-          <circle cx="16" cy="6" r="1.8" fill="#22D3EE" />
+          {/* Ink dot — like a period, a stamp */}
+          <circle cx="16" cy="30" r="1.2" fill="var(--tangerine)" />
         </svg>
       </div>
       {showWordmark && (
-        <span className="text-[17px] font-semibold tracking-tight text-foreground">
+        <span
+          className="font-serif font-semibold tracking-tight text-foreground"
+          style={{ fontSize: size * 0.62 }}
+        >
           Axiom
         </span>
       )}

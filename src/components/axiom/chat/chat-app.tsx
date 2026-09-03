@@ -18,11 +18,14 @@ import {
   PenLine,
   Lightbulb,
   Globe,
+  Gamepad2,
+  X,
 } from 'lucide-react'
 import { AppShell } from '../app/app-shell'
 import { ChatSidebar } from './chat-sidebar'
 import { ChatComposer } from './chat-composer'
 import { Markdown } from './markdown'
+import { MiniGame } from './mini-game'
 import { ModelBadge } from '../shared/model-badge'
 import { useNav, useChat, useUser } from '@/lib/axiom/store'
 import { uid } from '@/lib/axiom/sample-data'
@@ -38,10 +41,10 @@ import {
 import { toast } from 'sonner'
 
 const SUGGESTIONS = [
-  { icon: Code2, title: 'Write code', prompt: 'Write a React hook for debouncing a value', gradient: 'from-indigo-500 to-violet-500' },
-  { icon: Lightbulb, title: 'Brainstorm ideas', prompt: 'Brainstorm 5 product ideas for a solo developer', gradient: 'from-cyan-400 to-sky-500' },
-  { icon: PenLine, title: 'Draft an email', prompt: 'Write a professional email requesting a deadline extension', gradient: 'from-pink-500 to-rose-500' },
-  { icon: Globe, title: 'Explain a concept', prompt: 'Explain how WebSockets work and when to use them', gradient: 'from-emerald-400 to-teal-500' },
+  { icon: Code2, title: 'Write code', prompt: 'Write a React hook for debouncing a value', accent: 'var(--tangerine)' },
+  { icon: Lightbulb, title: 'Brainstorm ideas', prompt: 'Brainstorm 5 product ideas for a solo developer', accent: 'var(--forest)' },
+  { icon: PenLine, title: 'Draft an email', prompt: 'Write a professional email requesting a deadline extension', accent: 'var(--ochre)' },
+  { icon: Globe, title: 'Explain a concept', prompt: 'Explain how WebSockets work and when to use them', accent: '#4A6FA5' },
 ]
 
 export function ChatApp() {
@@ -60,6 +63,8 @@ export function ChatApp() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [gameOpen, setGameOpen] = useState(false)
+  const [gameDismissed, setGameDismissed] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -95,6 +100,7 @@ export function ChatApp() {
       }
       addMessage(threadId, placeholder)
       setIsStreaming(true)
+      setGameDismissed(false)
 
       const controller = new AbortController()
       abortRef.current = controller
@@ -309,7 +315,7 @@ export function ChatApp() {
           </header>
 
           {/* Messages or empty state */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto axiom-scroll-thin">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-thin relative">
             {!hasMessages ? (
               <EmptyState onPick={handleSend} />
             ) : (
@@ -334,6 +340,20 @@ export function ChatApp() {
                 ))}
                 <div ref={bottomRef} className="h-4" />
               </div>
+            )}
+
+            {/* Mini-game widget — appears when streaming and not dismissed */}
+            {isStreaming && !gameDismissed && (
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ duration: 0.3, delay: 0.4 }}
+                className="fixed bottom-32 right-6 z-40 shadow-xl"
+                style={{ width: 260 }}
+              >
+                <MiniGame onClose={() => setGameDismissed(true)} compact />
+              </motion.div>
             )}
           </div>
 
@@ -362,13 +382,16 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
         transition={{ duration: 0.5 }}
         className="text-center max-w-2xl w-full"
       >
-        <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-400 mb-6 axiom-glow-sm axiom-animate-float">
-          <Sparkles className="h-8 w-8 text-white" />
+        <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--tangerine)] mb-6 anim-float">
+          <Sparkles className="h-6 w-6 text-white" />
         </div>
-        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-          {greeting}. <span className="axiom-gradient-text">What can we build today?</span>
+        <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
+          {greeting}
+        </div>
+        <h1 className="font-serif text-4xl sm:text-5xl tracking-[-0.02em] leading-[1.1] font-medium">
+          What can we <span className="italic text-[var(--tangerine)]">build</span> today?
         </h1>
-        <p className="mt-3 text-muted-foreground">
+        <p className="mt-4 text-muted-foreground">
           Ask anything — Axiom will think it through and write it out.
         </p>
 
@@ -380,10 +403,13 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.1 + i * 0.05 }}
               onClick={() => onPick(s.prompt)}
-              className="group flex items-start gap-3 rounded-xl border border-border bg-card/40 p-4 text-left hover:bg-card/80 hover:border-border-strong transition-all"
+              className="group flex items-start gap-3 rounded-lg border hairline bg-[var(--card)] p-4 text-left hover:border-[var(--tangerine)]/40 hover:glow-tangerine transition-all"
             >
-              <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br shrink-0', s.gradient)}>
-                <s.icon className="h-4 w-4 text-white" />
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-md shrink-0"
+                style={{ background: s.accent + '20', color: s.accent }}
+              >
+                <s.icon className="h-4 w-4" />
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-medium">{s.title}</div>
@@ -391,6 +417,10 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
               </div>
             </motion.button>
           ))}
+        </div>
+
+        <div className="mt-10 text-xs text-muted-foreground font-mono">
+          Tip: a mini-game appears while Axiom thinks. ↗
         </div>
       </motion.div>
     </div>
@@ -453,7 +483,7 @@ function MessageRow({
               You
             </div>
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-cyan-400">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--tangerine)]">
               <Sparkles className="h-4 w-4 text-white" />
             </div>
           )}
