@@ -57,10 +57,7 @@ export const useNav = create<NavState>()(
     }),
     {
       name: 'axiom-nav',
-      partialize: (s) => ({
-        isAuthenticated: s.isAuthenticated,
-        view: s.view,
-      }),
+      partialize: (s) => ({ view: s.view }),
     }
   )
 )
@@ -183,7 +180,10 @@ export const useUser = create<UserState>()(
       },
       signOut: () => set({ user: null, authError: null }),
     }),
-    { name: 'axiom-user' }
+    {
+      name: 'axiom-user',
+      partialize: (s) => ({ user: s.user }),
+    }
   )
 )
 
