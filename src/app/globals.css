@@ -1,0 +1,353 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ============ AXIOM DESIGN SYSTEM — Dark-first ============ */
+:root {
+  --radius: 0.625rem;
+
+  /* Light mode (secondary experience) */
+  --background: oklch(0.985 0.001 250);
+  --foreground: oklch(0.12 0.005 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.12 0.005 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.12 0.005 250);
+  --primary: oklch(0.18 0.02 265);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.96 0.003 250);
+  --secondary-foreground: oklch(0.18 0.02 265);
+  --muted: oklch(0.96 0.003 250);
+  --muted-foreground: oklch(0.45 0.01 250);
+  --accent: oklch(0.55 0.12 265);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(0.9 0.004 250);
+  --input: oklch(0.9 0.004 250);
+  --ring: oklch(0.55 0.12 265);
+  --chart-1: oklch(0.55 0.22 265);
+  --chart-2: oklch(0.7 0.15 200);
+  --chart-3: oklch(0.65 0.2 150);
+  --chart-4: oklch(0.7 0.18 60);
+  --chart-5: oklch(0.6 0.22 340);
+  --sidebar: oklch(0.97 0.002 250);
+  --sidebar-foreground: oklch(0.15 0.005 250);
+  --sidebar-primary: oklch(0.55 0.12 265);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.94 0.003 250);
+  --sidebar-accent-foreground: oklch(0.18 0.02 265);
+  --sidebar-border: oklch(0.9 0.004 250);
+  --sidebar-ring: oklch(0.55 0.12 265);
+
+  /* Axiom brand tokens */
+  --axiom-bg: #0A0A0B;
+  --axiom-surface-1: #111114;
+  --axiom-surface-2: #17171B;
+  --axiom-surface-3: #1E1E24;
+  --axiom-border: rgba(255, 255, 255, 0.08);
+  --axiom-border-strong: rgba(255, 255, 255, 0.14);
+  --axiom-text-primary: #F4F4F5;
+  --axiom-text-secondary: #A1A1AA;
+  --axiom-text-muted: #71717A;
+  --axiom-accent-from: #6366F1;
+  --axiom-accent-via: #818CF8;
+  --axiom-accent-to: #22D3EE;
+  --axiom-cyan: #22D3EE;
+  --axiom-indigo: #6366F1;
+}
+
+.dark {
+  /* Dark mode = default, hero experience */
+  --background: oklch(0.11 0.004 250);
+  --foreground: oklch(0.97 0.002 250);
+  --card: oklch(0.145 0.004 250);
+  --card-foreground: oklch(0.97 0.002 250);
+  --popover: oklch(0.155 0.004 250);
+  --popover-foreground: oklch(0.97 0.002 250);
+  --primary: oklch(0.97 0.002 250);
+  --primary-foreground: oklch(0.11 0.004 250);
+  --secondary: oklch(0.18 0.005 250);
+  --secondary-foreground: oklch(0.97 0.002 250);
+  --muted: oklch(0.16 0.004 250);
+  --muted-foreground: oklch(0.62 0.008 250);
+  --accent: oklch(0.55 0.14 265);
+  --accent-foreground: oklch(0.97 0.002 250);
+  --destructive: oklch(0.65 0.2 25);
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: oklch(0.6 0.14 200);
+  --chart-1: oklch(0.6 0.22 265);
+  --chart-2: oklch(0.72 0.15 200);
+  --chart-3: oklch(0.68 0.2 150);
+  --chart-4: oklch(0.72 0.18 60);
+  --chart-5: oklch(0.62 0.22 340);
+  --sidebar: oklch(0.09 0.003 250);
+  --sidebar-foreground: oklch(0.92 0.003 250);
+  --sidebar-primary: oklch(0.6 0.14 265);
+  --sidebar-primary-foreground: oklch(0.97 0.002 250);
+  --sidebar-accent: oklch(0.16 0.004 250);
+  --sidebar-accent-foreground: oklch(0.97 0.002 250);
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-ring: oklch(0.6 0.14 265);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ============ Axiom utility classes ============ */
+@layer utilities {
+  .axiom-gradient-text {
+    background: linear-gradient(135deg, var(--axiom-accent-from), var(--axiom-accent-to));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .axiom-gradient-bg {
+    background: linear-gradient(135deg, var(--axiom-accent-from), var(--axiom-accent-to));
+  }
+
+  .axiom-gradient-border {
+    position: relative;
+    background-clip: padding-box;
+  }
+  .axiom-gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--axiom-accent-from), var(--axiom-accent-to));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .axiom-glow {
+    box-shadow: 0 0 40px -8px rgba(99, 102, 241, 0.45), 0 0 80px -20px rgba(34, 211, 238, 0.25);
+  }
+
+  .axiom-glow-sm {
+    box-shadow: 0 0 20px -6px rgba(99, 102, 241, 0.4);
+  }
+
+  .axiom-glass {
+    background: rgba(17, 17, 20, 0.72);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+
+  .axiom-glass-light {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+
+  .axiom-grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .axiom-dots-bg {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .axiom-radial-fade {
+    -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, transparent 70%);
+    mask-image: radial-gradient(ellipse at center, #000 0%, transparent 70%);
+  }
+
+  .axiom-scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  .axiom-scroll-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .axiom-scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .axiom-scroll-thin::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+  }
+  .axiom-scroll-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.2);
+  }
+
+  .axiom-animate-in {
+    animation: axiom-fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .axiom-animate-slide-up {
+    animation: axiom-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .axiom-animate-scale {
+    animation: axiom-scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .axiom-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.04) 0%,
+      rgba(255,255,255,0.08) 50%,
+      rgba(255,255,255,0.04) 100%
+    );
+    background-size: 200% 100%;
+    animation: axiom-shimmer 1.6s ease-in-out infinite;
+  }
+
+  .axiom-blink-cursor::after {
+    content: "▍";
+    display: inline-block;
+    margin-left: 2px;
+    color: var(--axiom-accent-via);
+    animation: axiom-blink 1s step-end infinite;
+  }
+}
+
+@keyframes axiom-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes axiom-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes axiom-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes axiom-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@keyframes axiom-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+@keyframes axiom-pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px -6px rgba(99,102,241,0.4); }
+  50% { box-shadow: 0 0 30px -4px rgba(99,102,241,0.7), 0 0 60px -10px rgba(34,211,238,0.3); }
+}
+@keyframes axiom-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes axiom-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes axiom-gradient-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.axiom-animate-float { animation: axiom-float 4s ease-in-out infinite; }
+.axiom-animate-pulse-glow { animation: axiom-pulse-glow 2.5s ease-in-out infinite; }
+.axiom-animate-gradient {
+  background-size: 200% 200%;
+  animation: axiom-gradient-pan 6s ease infinite;
+}
+.axiom-spin { animation: axiom-spin 0.8s linear infinite; }
+
+/* Markdown prose styling for chat */
+.axiom-prose {
+  @apply text-[0.95rem] leading-relaxed;
+}
+.axiom-prose p {
+  @apply my-3;
+}
+.axiom-prose h1, .axiom-prose h2, .axiom-prose h3 {
+  @apply font-semibold mt-5 mb-2 text-foreground;
+}
+.axiom-prose h1 { @apply text-xl; }
+.axiom-prose h2 { @apply text-lg; }
+.axiom-prose h3 { @apply text-base; }
+.axiom-prose ul {
+  @apply list-disc pl-5 my-3 space-y-1;
+}
+.axiom-prose ol {
+  @apply list-decimal pl-5 my-3 space-y-1;
+}
+.axiom-prose li {
+  @apply leading-relaxed;
+}
+.axiom-prose blockquote {
+  @apply border-l-2 border-primary/40 pl-4 italic text-muted-foreground my-3;
+}
+.axiom-prose a {
+  @apply text-accent underline underline-offset-2 hover:text-accent/80;
+}
+.axiom-prose :not(pre) > code {
+  @apply bg-muted px-1.5 py-0.5 rounded text-[0.85em] font-mono text-accent;
+}
+.axiom-prose table {
+  @apply w-full border-collapse my-3 text-sm;
+}
+.axiom-prose th, .axiom-prose td {
+  @apply border border-border px-3 py-2 text-left;
+}
+.axiom-prose th {
+  @apply bg-muted font-semibold;
+}
+.axiom-prose hr {
+  @apply my-4 border-border;
+}
