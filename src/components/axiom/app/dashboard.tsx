@@ -38,29 +38,29 @@ export function Dashboard() {
   const creditsPct = user ? Math.round((user.credits / user.creditsTotal) * 100) : 0
 
   const quickStarts = [
-    { label: 'Write code', desc: 'Build a React component', icon: Code2, action: () => navigate('studio'), gradient: 'from-cyan-400 to-teal-500' },
-    { label: 'Brainstorm', desc: 'Generate product ideas', icon: Sparkles, action: () => { const id = createThread(); setActiveThread(id); navigate('chat') }, gradient: 'from-indigo-500 to-violet-500' },
-    { label: 'Analyze data', desc: 'Upload a CSV and ask', icon: TrendingUp, action: () => { const id = createThread(); setActiveThread(id); navigate('chat') }, gradient: 'from-emerald-400 to-green-500' },
-    { label: 'Explain a concept', desc: 'Ask anything', icon: MessageSquare, action: () => { const id = createThread(); setActiveThread(id); navigate('chat') }, gradient: 'from-pink-500 to-rose-500' },
+    { label: 'Write code', desc: 'Build a React component', icon: Code2, action: () => navigate('studio'), accent: 'var(--tangerine)' },
+    { label: 'Brainstorm', desc: 'Generate product ideas', icon: Sparkles, action: () => { const id = createThread(); setActiveThread(id); navigate('chat') }, accent: 'var(--forest)' },
+    { label: 'Analyze data', desc: 'Upload a CSV and ask', icon: TrendingUp, action: () => { const id = createThread(); setActiveThread(id); navigate('chat') }, accent: 'var(--ochre)' },
+    { label: 'Explain a concept', desc: 'Ask anything', icon: MessageSquare, action: () => { const id = createThread(); setActiveThread(id); navigate('chat') }, accent: '#4A6FA5' },
   ]
 
   return (
     <AppShell activeView="dashboard">
-      <div className="h-full overflow-y-auto axiom-scroll-thin">
-        <div className="mx-auto max-w-6xl px-6 lg:px-10 py-8">
+      <div className="h-full overflow-y-auto scroll-thin">
+        <div className="mx-auto max-w-6xl px-6 lg:px-10 py-10">
           {/* Greeting */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="mb-10"
+            className="mb-12"
           >
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <Sparkles className="h-3.5 w-3.5 text-[var(--tangerine)]" />
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              {greeting}, <span className="axiom-gradient-text">{firstName}</span>.
+            <h1 className="font-serif text-3xl tracking-[-0.02em] font-medium">
+              {greeting}, <span className="italic text-[var(--tangerine)]">{firstName}</span>.
             </h1>
             <p className="mt-2 text-muted-foreground">What can we build today?</p>
           </motion.div>
@@ -74,10 +74,13 @@ export function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: i * 0.05 }}
                 onClick={q.action}
-                className="group relative text-left rounded-xl border border-border bg-card/40 p-5 hover:bg-card/80 hover:border-border-strong transition-all overflow-hidden"
+                className="group relative text-left rounded-xl border hairline bg-[var(--card)] p-5 hover:border-[var(--accent)]/30 hover:shadow-sm transition-all overflow-hidden"
               >
-                <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br mb-4', q.gradient)}>
-                  <q.icon className="h-4 w-4 text-white" />
+                <div
+                  className="flex h-9 w-9 items-center justify-center rounded-lg mb-4"
+                  style={{ background: q.accent + '18', color: q.accent }}
+                >
+                  <q.icon className="h-4 w-4" />
                 </div>
                 <div className="font-medium text-sm">{q.label}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">{q.desc}</div>
@@ -107,9 +110,9 @@ export function Dashboard() {
                       setActiveThread(t.id)
                       navigate('chat')
                     }}
-                    className="w-full flex items-center gap-4 rounded-xl border border-border bg-card/30 p-4 hover:bg-card/60 hover:border-border-strong transition-all text-left group"
+                    className="w-full flex items-center gap-4 rounded-xl border hairline bg-[var(--card)]/60 p-4 hover:bg-[var(--card)] hover:hairline-strong transition-all text-left group"
                   >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--secondary)] shrink-0">
                       <MessageSquare className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -123,7 +126,7 @@ export function Dashboard() {
                   </motion.button>
                 ))}
                 {threads.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-border p-12 text-center">
+                  <div className="rounded-xl border border-dashed hairline p-12 text-center">
                     <MessageSquare className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
                     <p className="text-sm text-muted-foreground">No conversations yet. Start one above.</p>
                   </div>
@@ -149,13 +152,13 @@ export function Dashboard() {
                       setActiveFile(null)
                       navigate('studio')
                     }}
-                    className="group text-left rounded-xl border border-border bg-card/30 p-5 hover:bg-card/60 hover:border-border-strong transition-all"
+                    className="group text-left rounded-xl border hairline bg-[var(--card)]/60 p-5 hover:bg-[var(--card)] hover:hairline-strong transition-all"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400/20 to-teal-500/20 border border-cyan-400/20">
                         <FolderGit2 className="h-4 w-4 text-cyan-400" />
                       </div>
-                      <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{p.template}</span>
+                      <span className="text-[10px] text-muted-foreground bg-[var(--secondary)] px-2 py-0.5 rounded-full">{p.template}</span>
                     </div>
                     <div className="font-medium text-sm truncate">{p.name}</div>
                     <div className="text-xs text-muted-foreground mt-0.5 truncate">{p.description}</div>
@@ -181,7 +184,7 @@ export function Dashboard() {
                       setActiveFile(null)
                       navigate('studio')
                     }}
-                    className="group rounded-xl border border-border bg-card/30 p-4 hover:bg-card/60 hover:border-border-strong transition-all text-left"
+                    className="group rounded-xl border hairline bg-[var(--card)]/60 p-4 hover:bg-[var(--card)] hover:hairline-strong transition-all text-left"
                   >
                     <div className="text-2xl mb-2">{t.icon}</div>
                     <div className="text-sm font-medium">{t.name}</div>
@@ -193,10 +196,10 @@ export function Dashboard() {
 
             {/* Usage sidebar */}
             <div className="space-y-6">
-              <div className="rounded-xl border border-border bg-card/40 p-5">
+              <div className="rounded-xl border hairline bg-[var(--card)]/70 p-5">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="font-semibold text-sm">Usage this month</h3>
-                  <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{user.plan.toUpperCase()}</span>
+                  <span className="text-[10px] text-muted-foreground bg-[var(--secondary)] px-2 py-0.5 rounded-full">{user.plan.toUpperCase()}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mb-5">Resets in 12 days</p>
 
@@ -206,7 +209,7 @@ export function Dashboard() {
                       <span className="text-xs text-muted-foreground">Credits used</span>
                       <span className="text-xs font-mono">{user.creditsTotal - user.credits} / {user.creditsTotal}</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-[var(--secondary)] overflow-hidden">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all"
                         style={{ width: `${100 - creditsPct}%` }}
@@ -214,7 +217,7 @@ export function Dashboard() {
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-border space-y-2.5">
+                  <div className="pt-3 border-t hairline space-y-2.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground flex items-center gap-1.5">
                         <Sparkles className="h-3 w-3 text-indigo-400" /> Axiom Pro
@@ -246,34 +249,34 @@ export function Dashboard() {
                 </Button>
               </div>
 
-              <div className="rounded-xl border border-border bg-gradient-to-br from-indigo-500/10 to-cyan-400/10 p-5">
+              <div className="rounded-xl border hairline bg-gradient-to-br from-[var(--tangerine)]/10 to-[var(--ochre)]/10 p-5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-400 mb-3">
                   <Sparkles className="h-4 w-4 text-white" />
                 </div>
                 <h3 className="font-semibold text-sm mb-1">Tip: Use @codebase in Studio</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Mention <span className="font-mono text-accent">@codebase</span> in the agent panel to ask questions across your entire project. Axiom indexes your files automatically.
+                  Mention <span className="font-mono text-[var(--tangerine)]">@codebase</span> in the agent panel to ask questions across your entire project. Axiom indexes your files automatically.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-border bg-card/40 p-5">
+              <div className="rounded-xl border hairline bg-[var(--card)]/70 p-5">
                 <h3 className="font-semibold text-sm mb-3">Keyboard shortcuts</h3>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Command palette</span>
-                    <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">⌘K</kbd>
+                    <kbd className="font-mono text-[10px] bg-[var(--secondary)] px-1.5 py-0.5 rounded">⌘K</kbd>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">New chat</span>
-                    <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">⌘J</kbd>
+                    <kbd className="font-mono text-[10px] bg-[var(--secondary)] px-1.5 py-0.5 rounded">⌘J</kbd>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Inline edit (Studio)</span>
-                    <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">⌘I</kbd>
+                    <kbd className="font-mono text-[10px] bg-[var(--secondary)] px-1.5 py-0.5 rounded">⌘I</kbd>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Toggle sidebar</span>
-                    <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">⌘B</kbd>
+                    <kbd className="font-mono text-[10px] bg-[var(--secondary)] px-1.5 py-0.5 rounded">⌘B</kbd>
                   </div>
                 </div>
               </div>

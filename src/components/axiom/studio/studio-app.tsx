@@ -402,21 +402,22 @@ export function StudioApp() {
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Top bar */}
           <header className="flex items-center justify-between h-12 px-4 border-b hairline shrink-0 bg-[var(--card)]">
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
               <button onClick={() => navigate('dashboard')} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Dashboard
               </button>
-              <span className="text-muted-foreground">/</span>
+              <span className="text-muted-foreground/50">/</span>
               <span className="text-sm font-medium truncate">{activeProject?.name || 'No project'}</span>
-              <span className="text-[10px] text-muted-foreground bg-[var(--secondary)] px-1.5 py-0.5 rounded">{activeProject?.template}</span>
+              <span className="text-[10px] text-muted-foreground bg-[var(--secondary)] px-2 py-0.5 rounded-full">{activeProject?.template}</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={() => setBottomOpen(!bottomOpen)}>
                 <TerminalIcon className="h-3.5 w-3.5" />
                 Terminal
               </Button>
+              <div className="h-4 w-px bg-[var(--rule)]" />
               <ModelBadge modelId="axiom-coder" size="sm" />
-              <Button size="sm" className="h-8 gap-1.5 bg-[var(--tangerine)] text-white hover:bg-[var(--tangerine)]/90" onClick={handleDeploy}>
+              <Button size="sm" className="h-8 gap-1.5 bg-[var(--tangerine)] text-white hover:bg-[var(--tangerine)]/90 rounded-full px-4" onClick={handleDeploy}>
                 <Rocket className="h-3.5 w-3.5" />
                 Publish
               </Button>

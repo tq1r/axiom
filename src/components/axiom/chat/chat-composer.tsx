@@ -113,19 +113,19 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
   }
 
   return (
-    <div className="border-t border-border bg-background/80 backdrop-blur-xl">
+    <div className="border-t hairline bg-[var(--card)]/80 backdrop-blur-xl">
       <div className="mx-auto max-w-3xl px-4 py-3">
         {/* Slash command popover */}
         {showSlashComputed && (
-          <div className="mb-2 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
+          <div className="mb-2 rounded-lg border hairline bg-[var(--popover)] shadow-lg overflow-hidden">
             {SLASH_COMMANDS.map((sc) => (
               <button
                 key={sc.cmd}
                 onClick={() => insertSlash(sc.cmd)}
-                className="w-full flex items-center gap-3 px-3 py-2 hover:bg-accent/10 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-3 py-2 hover:bg-[var(--accent)]/10 transition-colors text-left"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-muted">
-                  <sc.icon className="h-3.5 w-3.5 text-accent" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--muted)]">
+                  <sc.icon className="h-3.5 w-3.5 text-[var(--accent)]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-mono font-medium">{sc.cmd}</div>
@@ -161,7 +161,7 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
               const tool = TOOLS.find((t) => t.id === id)
               if (!tool) return null
               return (
-                <span key={id} className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 text-accent px-2 py-0.5 text-[11px]">
+                <span key={id} className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent)]/15 text-[var(--accent)] px-2 py-0.5 text-[11px]">
                   <tool.icon className="h-3 w-3" />
                   {tool.label}
                   <button onClick={() => toggleTool(id)} className="ml-0.5 hover:opacity-70">
@@ -174,7 +174,7 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
         )}
 
         {/* Input area */}
-        <div className="relative rounded-xl border border-border bg-card focus-within:border-border-strong focus-within:ring-1 focus-within:ring-accent/30 transition-all">
+        <div className="relative rounded-xl border hairline bg-[var(--background)] focus-within:border-[var(--accent)]/50 focus-within:ring-1 focus-within:ring-[var(--accent)]/20 transition-all shadow-sm">
           <textarea
             ref={textareaRef}
             value={text}
@@ -193,7 +193,7 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
               {/* Attach */}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--secondary)] hover:text-foreground transition-colors"
                 title="Attach file"
               >
                 <Paperclip className="h-4 w-4" />
@@ -210,7 +210,7 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
               {/* Model picker */}
               <Popover open={modelOpen} onOpenChange={setModelOpen}>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-1.5 h-8 px-2 rounded-md text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                  <button className="flex items-center gap-1.5 h-8 px-2 rounded-md text-xs text-muted-foreground hover:bg-[var(--secondary)] hover:text-foreground transition-colors">
                     {thread && <ModelBadge modelId={thread.modelId} size="sm" showName={false} />}
                     <span className="hidden sm:inline">
                       {MODELS.find((m) => m.id === thread?.modelId)?.name || 'Axiom Pro'}
@@ -228,15 +228,15 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
                         setModelOpen(false)
                       }}
                       className={cn(
-                        'w-full flex items-start gap-3 rounded-md p-2 hover:bg-accent/10 transition-colors text-left',
-                        thread?.modelId === m.id && 'bg-accent/5'
+                        'w-full flex items-start gap-3 rounded-md p-2 hover:bg-[var(--accent)]/10 transition-colors text-left',
+                        thread?.modelId === m.id && 'bg-[var(--accent)]/5'
                       )}
                     >
                       <ModelBadge modelId={m.id} size="md" showName={false} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">{m.name}</span>
-                          {thread?.modelId === m.id && <Check className="h-3 w-3 text-accent" />}
+                          {thread?.modelId === m.id && <Check className="h-3 w-3 text-[var(--accent)]" />}
                         </div>
                         <div className="text-xs text-muted-foreground">{m.tagline} · {m.contextWindow}</div>
                       </div>
@@ -248,7 +248,7 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
               {/* Tools */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="flex items-center gap-1.5 h-8 px-2 rounded-md text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                  <button className="flex items-center gap-1.5 h-8 px-2 rounded-md text-xs text-muted-foreground hover:bg-[var(--secondary)] hover:text-foreground transition-colors">
                     <Slash className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Tools</span>
                   </button>
@@ -259,18 +259,18 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
                     <button
                       key={t.id}
                       onClick={() => toggleTool(t.id)}
-                      className="w-full flex items-start gap-3 rounded-md p-2 hover:bg-accent/10 transition-colors text-left"
+                      className="w-full flex items-start gap-3 rounded-md p-2 hover:bg-[var(--accent)]/10 transition-colors text-left"
                     >
                       <div className={cn(
                         'flex h-7 w-7 items-center justify-center rounded-md shrink-0',
-                        activeTools.has(t.id) ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground'
+                        activeTools.has(t.id) ? 'bg-accent text-[var(--accent)]-foreground' : 'bg-[var(--muted)] text-muted-foreground'
                       )}>
                         <t.icon className="h-3.5 w-3.5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium flex items-center gap-2">
                           {t.label}
-                          {activeTools.has(t.id) && <Check className="h-3 w-3 text-accent" />}
+                          {activeTools.has(t.id) && <Check className="h-3 w-3 text-[var(--accent)]" />}
                         </div>
                         <div className="text-xs text-muted-foreground">{t.desc}</div>
                       </div>
@@ -283,7 +283,7 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
             <div className="flex items-center gap-0.5">
               {/* Voice (UI ready) */}
               <button
-                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--secondary)] hover:text-foreground transition-colors"
                 title="Voice input"
               >
                 <Mic className="h-4 w-4" />

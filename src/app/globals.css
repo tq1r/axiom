@@ -65,7 +65,7 @@
   --secondary: #E3DBC8;           /* warm tan */
   --secondary-foreground: #1C1714;
   --muted: #E3DBC8;
-  --muted-foreground: #6B6357;    /* warm gray-brown */
+  --muted-foreground: #5C5448;    /* darker for better contrast */
   --accent: #DC4A1E;              /* tangerine — the signature */
   --accent-foreground: #FBF7EE;
   --accent-soft: #F7E0D4;         /* soft tangerine tint */
@@ -155,6 +155,21 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  /* Better focus states for accessibility */
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  /* Better text selection */
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-foreground);
   }
   /* Paper texture overlay — subtle, only on light theme */
   body::before {

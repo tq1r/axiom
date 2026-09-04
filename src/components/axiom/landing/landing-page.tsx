@@ -63,16 +63,16 @@ export function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Nav — editorial, thin, with a hairline rule */}
-      <header className="sticky top-0 z-50 bg-background/85 backdrop-blur-md border-b hairline">
+      <header className="sticky top-0 z-50 bg-background/90 backdrop-blur-xl border-b hairline">
         <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
           <AxiomLogo size={26} />
-          <nav className="hidden md:flex items-center gap-7 text-sm">
+          <nav className="hidden md:flex items-center gap-8 text-sm">
             <button onClick={() => navigate('models')} className="text-muted-foreground hover:text-foreground transition-colors">Models</button>
             <button onClick={() => navigate('pricing')} className="text-muted-foreground hover:text-foreground transition-colors">Pricing</button>
             <button onClick={() => navigate('studio')} className="text-muted-foreground hover:text-foreground transition-colors">Studio</button>
             <button onClick={() => navigate('chat')} className="text-muted-foreground hover:text-foreground transition-colors">Chat</button>
           </nav>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <ThemeToggle />
             <button
               onClick={() => { setAuthMode('signin'); navigate('auth') }}
@@ -93,9 +93,9 @@ export function LandingPage() {
       </header>
 
       {/* HERO — editorial, asymmetric, no centered everything */}
-      <section className="relative pt-20 pb-24">
+      <section className="relative pt-24 pb-28">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="grid lg:grid-cols-12 gap-8 items-end">
+          <div className="grid lg:grid-cols-12 gap-12 items-center">
             {/* Left — headline takes 7 cols */}
             <motion.div
               style={{ y: heroY }}
