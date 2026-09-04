@@ -217,10 +217,12 @@ export function StudioApp() {
     const lowerPrompt = prompt.toLowerCase()
     const isGreeting = /^(hi|hey|hello|yo|sup|howdy|hey there|what's up|whats up|good morning|good afternoon|good evening)\b/i.test(lowerPrompt.trim())
     const isShortQuestion = prompt.length < 30 && (lowerPrompt.includes('?') || lowerPrompt.startsWith('what') || lowerPrompt.startsWith('how') || lowerPrompt.startsWith('why'))
-    const looksLikeBuildRequest = lowerPrompt.includes('build') || lowerPrompt.includes('create') || lowerPrompt.includes('make a') || lowerPrompt.includes('add') || lowerPrompt.includes('component') || lowerPrompt.includes('function') || lowerPrompt.includes('page') || lowerPrompt.includes('app') || lowerPrompt.includes('feature') || lowerPrompt.includes('fix') || lowerPrompt.includes('implement')
+    const looksLikeBuildRequest = lowerPrompt.includes('build') || lowerPrompt.includes('create') || lowerPrompt.includes('make a') || lowerPrompt.includes('add a') || lowerPrompt.includes('component') || lowerPrompt.includes('function') || lowerPrompt.includes('page') || lowerPrompt.includes('app') || lowerPrompt.includes('feature') || lowerPrompt.includes('fix') || lowerPrompt.includes('implement')
+    // Detect non-build requests: questions, commands, conversations
+    const isNonBuildRequest = lowerPrompt.includes('clear') || lowerPrompt.includes('delete') || lowerPrompt.includes('remove') || lowerPrompt.includes('reset') || lowerPrompt.includes('question') || lowerPrompt.startsWith('what') || lowerPrompt.startsWith('how') || lowerPrompt.startsWith('why') || lowerPrompt.startsWith('can you') || lowerPrompt.startsWith('could you') || lowerPrompt.includes('?')
 
-    // If it's a greeting or short question that's NOT a build request, just respond like a chat
-    if ((isGreeting || isShortQuestion) && !looksLikeBuildRequest) {
+    // If it's a greeting, short question, or non-build request — respond like a chat
+    if ((isGreeting || isShortQuestion || (isNonBuildRequest && !looksLikeBuildRequest))) {
       const chatStepId = 's_' + uid()
       addAgentStep({
         id: chatStepId,
@@ -229,6 +231,26 @@ export function StudioApp() {
         status: 'running',
         timestamp: Date.now(),
       })
+
+      // Special case: "clear the project" — actually do it
+      if (lowerPrompt.includes('clear') && (lowerPrompt.includes('project') || lowerPrompt.includes('files') || lowerPrompt.includes('code'))) {
+        if (activeProjectId) {
+          useStudio.setState((s) => ({
+            projects: s.projects.map((p) =>
+              p.id === activeProjectId ? { ...p, files: [], updatedAt: Date.now() } : p
+            ),
+          }))
+          setActiveFile(null)
+          setOpenTabs([])
+        }
+        updateAgentStep(chatStepId, {
+          title: 'Axiom',
+          status: 'done',
+          detail: "Done — I've cleared all the project files. The file explorer is now empty. Tell me what you want to build and I'll create fresh files for you.",
+        })
+        setAgentRunning(false)
+        return
+      }
 
       const response = await callAI(
         'You are Axiom, an AI coding assistant inside an IDE. Be friendly, concise, and helpful. If the user just says hi, greet them back and ask what they want to build. Keep it short.',
@@ -455,6 +477,18 @@ export function StudioApp() {
                             activeFileId={activeFileId}
                             onSelect={handleSelectFile}
                             projectName={activeProject?.name || ''}
+                            onClear={() => {
+                              if (activeProjectId) {
+                                useStudio.setState((s) => ({
+                                  projects: s.projects.map((p) =>
+                                    p.id === activeProjectId ? { ...p, files: [], updatedAt: Date.now() } : p
+                                  ),
+                                }))
+                                setActiveFile(null)
+                                setOpenTabs([])
+                                toast.success('Project cleared')
+                              }
+                            }}
                           />
                         </div>
 

@@ -36,7 +36,7 @@ export function CodeEditor({ value, language, onChange, readOnly, ghostText, onA
     }
   }, [])
 
-  const highlighted = useMemo(() => highlight(value + (ghostText ? '\n' + ghostText : ''), language), [value, language, ghostText])
+  const highlighted = useMemo(() => highlight(value, language), [value, language])
 
   // Handle Tab key and ghost text acceptance
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

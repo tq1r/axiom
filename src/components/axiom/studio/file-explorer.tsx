@@ -12,6 +12,7 @@ import {
   FileText,
   Braces,
   Hash,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProjectFile } from '@/lib/axiom/types'
@@ -21,6 +22,7 @@ interface FileExplorerProps {
   activeFileId: string | null
   onSelect: (file: ProjectFile) => void
   projectName: string
+  onClear?: () => void
 }
 
 function FileIconView({ name, className }: { name: string; className?: string }) {
@@ -33,28 +35,43 @@ function FileIconView({ name, className }: { name: string; className?: string })
   return <FileIcon className={className} />
 }
 
-export function FileExplorer({ files, activeFileId, onSelect, projectName }: FileExplorerProps) {
+export function FileExplorer({ files, activeFileId, onSelect, projectName, onClear }: FileExplorerProps) {
   return (
-    <div className="h-full flex flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center justify-between h-9 px-3 border-b border-sidebar-border shrink-0">
+    <div className="h-full flex flex-col bg-[var(--sidebar)] text-[var(--sidebar-foreground)]">
+      <div className="flex items-center justify-between h-9 px-3 border-b hairline shrink-0">
         <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Explorer</span>
+        {files.length > 0 && onClear && (
+          <button
+            onClick={onClear}
+            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+            title="Clear all files"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        )}
       </div>
-      <div className="px-2 py-1.5 border-b border-sidebar-border shrink-0">
+      <div className="px-2 py-1.5 border-b hairline shrink-0">
         <div className="flex items-center gap-1.5 text-sm font-medium">
-          <FolderOpen className="h-3.5 w-3.5 text-accent" />
+          <FolderOpen className="h-3.5 w-3.5 text-[var(--tangerine)]" />
           {projectName}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto axiom-scroll-thin py-1">
-        {files.map((file) => (
-          <FileNode
-            key={file.id}
-            file={file}
-            depth={0}
-            activeFileId={activeFileId}
-            onSelect={onSelect}
-          />
-        ))}
+      <div className="flex-1 overflow-y-auto scroll-thin py-1">
+        {files.length === 0 ? (
+          <div className="px-3 py-8 text-center">
+            <p className="text-xs text-muted-foreground">No files yet.<br />Ask the agent to build something.</p>
+          </div>
+        ) : (
+          files.map((file) => (
+            <FileNode
+              key={file.id}
+              file={file}
+              depth={0}
+              activeFileId={activeFileId}
+              onSelect={onSelect}
+            />
+          ))
+        )}
       </div>
     </div>
   )
