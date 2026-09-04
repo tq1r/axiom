@@ -10,7 +10,7 @@ import type {
   AgentStep,
 } from './types'
 import { DEFAULT_CHAT_MODEL, DEFAULT_STUDIO_MODEL } from './models'
-import { SAMPLE_PROJECT, SAMPLE_THREADS, uid } from './sample-data'
+import { SAMPLE_PROJECT, uid } from './sample-data'
 
 // ============ NAVIGATION STORE ============
 interface NavState {
@@ -210,7 +210,7 @@ interface ChatState {
 export const useChat = create<ChatState>()(
   persist(
     (set) => ({
-      threads: SAMPLE_THREADS,
+      threads: [],
       sidebarCollapsed: false,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
@@ -315,8 +315,8 @@ export const useChat = create<ChatState>()(
       getThread: (id) => (id ? undefined : undefined),
     }),
     {
-      name: 'axiom-chat',
-      partialize: (s) => ({ threads: s.threads.slice(0, 20) }),
+      name: 'axiom-chat-v2',
+      partialize: (s) => ({ threads: s.threads.slice(0, 30) }),
     }
   )
 )

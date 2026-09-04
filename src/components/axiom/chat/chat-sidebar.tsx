@@ -56,20 +56,18 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
     t.title.toLowerCase().includes(search.toLowerCase())
   )
 
-  // Group threads by date — like the z.ai chat sidebar
-  const now = Date.now()
+  // Group threads by date — simplified to Today, Yesterday, Earlier
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0)
   const startOfYesterday = new Date(startOfToday.getTime() - 86400000)
-  const thirtyDaysAgo = now - 30 * 86400000
 
   const pinned = filtered.filter((t) => t.pinned && !t.archived)
   const today = filtered.filter((t) => !t.pinned && !t.archived && t.updatedAt >= startOfToday.getTime())
   const yesterday = filtered.filter((t) => !t.pinned && !t.archived && t.updatedAt >= startOfYesterday.getTime() && t.updatedAt < startOfToday.getTime())
-  const previous = filtered.filter((t) => !t.pinned && !t.archived && t.updatedAt >= thirtyDaysAgo && t.updatedAt < startOfYesterday.getTime())
-  const older = filtered.filter((t) => !t.pinned && !t.archived && t.updatedAt < thirtyDaysAgo)
+  const earlier = filtered.filter((t) => !t.pinned && !t.archived && t.updatedAt < startOfYesterday.getTime())
 
   const handleNew = () => {
     const id = createThread()
+    // Set active immediately — the chat app will pick this up
     setActiveThread(id)
     onClose()
   }
@@ -143,8 +141,8 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
           </div>
         </div>
 
-        {/* Thread list — grouped by date */}
-        <div className="flex-1 min-h-0 overflow-y-auto scroll-thin p-2">
+        {/* Thread list — clean, minimal */}
+        <div className="flex-1 min-h-0 overflow-y-auto scroll-thin px-1 py-1">
           {pinned.length > 0 && (
             <DateGroup label="Pinned" icon={<Pin className="h-3 w-3" />}>
               {pinned.map((t) => (
@@ -169,33 +167,19 @@ export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
             </DateGroup>
           )}
 
-          {previous.length > 0 && (
-            <DateGroup label="Previous 30 days">
-              {previous.map((t) => (
-                <ThreadItem key={t.id} thread={t} active={t.id === activeThreadId} editing={editingId === t.id} editValue={editValue} onEditChange={setEditValue} onCommitEdit={commitEdit} onSelect={() => { setActiveThread(t.id); onClose() }} onPin={() => togglePin(t.id)} onDelete={() => deleteThread(t.id)} onArchive={() => archiveThread(t.id)} onRename={() => startEdit(t.id, t.title)} />
-              ))}
-            </DateGroup>
-          )}
-
-          {older.length > 0 && (
-            <DateGroup label="Older">
-              {older.map((t) => (
+          {earlier.length > 0 && (
+            <DateGroup label="Earlier">
+              {earlier.map((t) => (
                 <ThreadItem key={t.id} thread={t} active={t.id === activeThreadId} editing={editingId === t.id} editValue={editValue} onEditChange={setEditValue} onCommitEdit={commitEdit} onSelect={() => { setActiveThread(t.id); onClose() }} onPin={() => togglePin(t.id)} onDelete={() => deleteThread(t.id)} onArchive={() => archiveThread(t.id)} onRename={() => startEdit(t.id, t.title)} />
               ))}
             </DateGroup>
           )}
 
           {filtered.length === 0 && (
-            <div className="px-2 py-8 text-center">
-              <MessageSquare className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+            <div className="px-3 py-12 text-center">
               <p className="text-xs text-muted-foreground">
                 {search ? 'No matches found.' : 'No conversations yet.'}
               </p>
-              {!search && (
-                <Button size="sm" variant="ghost" onClick={handleNew} className="mt-3 text-xs">
-                  <Plus className="mr-1 h-3 w-3" /> Start one
-                </Button>
-              )}
             </div>
           )}
         </div>
