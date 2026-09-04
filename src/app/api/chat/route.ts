@@ -1,8 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import ZAI from 'z-ai-web-dev-sdk'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+/**
+ * Generate a JWT token for the Zhipu/BigModel/z.ai API.
+ * The API key is in format {id}.{secret} and must be signed into a JWT.
+ */
+function generateZaiJWT(apiKey: string): string {
+  const [id, secret] = apiKey.split('.')
+  if (!id || !secret) throw new Error('Invalid API key format')
+
+  const header = { alg: 'HS256', sign_type: 'SIGN' }
+  const payload = {
+    api_key: id,
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    timestamp: Math.floor(Date.now() / 1000),
+  }
+
+  const b64url = (obj: any) =>
+    Buffer.from(JSON.stringify(obj))
+      .toString('base64')
+      .replace(/=/g, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+
+  const data = `${b64url(header)}.${b64url(payload)}`
+  const signature = crypto
+    .createHmac('sha256', secret)
+    .update(data)
+    .digest('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+
+  return `${data}.${signature}`
+}
 
 interface ChatRequestBody {
   messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
@@ -62,22 +97,69 @@ export async function POST(req: NextRequest) {
         }
 
         try {
-          // === Option 1: Use any OpenAI-compatible API via env vars ===
-          // Set these in Vercel: Settings → Environment Variables
-          // AI_API_KEY = your key (from OpenAI, Groq, Together, etc.)
-          // AI_BASE_URL = the API base URL (e.g. https://api.openai.com/v1)
-          // AI_MODEL = the model name (e.g. gpt-4o-mini, llama-3.1-8b-instant)
+          // === Zhipu/z.ai API (free with glm-4.5-flash) ===
+          // Get a free key at https://open.bigmodel.cn
+          // Set AI_API_KEY in Vercel env vars (format: id.secret)
           const aiKey = process.env.AI_API_KEY
-          const aiBaseUrl = process.env.AI_BASE_URL || 'https://api.openai.com/v1'
-          const aiModel = process.env.AI_MODEL || 'gpt-4o-mini'
 
-          if (aiKey) {
-            // Stream via OpenAI-compatible API
+          if (aiKey && aiKey.includes('.')) {
+            // Zhipu/z.ai API — requires JWT authentication
+            const jwt = generateZaiJWT(aiKey)
+            const apiResponse = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwt}`,
+              },
+              body: JSON.stringify({
+                model: process.env.AI_MODEL || 'glm-4.5-flash',
+                messages: fullMessages,
+                stream: true,
+              }),
+            })
+
+            if (apiResponse.ok && apiResponse.body) {
+              const reader = apiResponse.body.getReader()
+              const decoder = new TextDecoder()
+              let buffer = ''
+              while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                buffer += decoder.decode(value, { stream: true })
+                const lines = buffer.split('\n')
+                buffer = lines.pop() || ''
+                for (const line of lines) {
+                  const trimmed = line.trim()
+                  if (!trimmed.startsWith('data:')) continue
+                  const jsonStr = trimmed.slice(5).trim()
+                  if (jsonStr === '[DONE]') continue
+                  try {
+                    const parsed = JSON.parse(jsonStr)
+                    const delta = parsed?.choices?.[0]?.delta?.content
+                    if (delta) {
+                      send({ type: 'token', content: delta })
+                    }
+                  } catch {
+                    // partial JSON
+                  }
+                }
+              }
+              send({ type: 'done' })
+              controller.close()
+              return
+            }
+          }
+
+          // === Standard OpenAI-compatible API (OpenAI, Groq, Together) ===
+          const openaiKey = process.env.OPENAI_API_KEY
+          if (openaiKey) {
+            const aiBaseUrl = process.env.AI_BASE_URL || 'https://api.openai.com/v1'
+            const aiModel = process.env.AI_MODEL || 'gpt-4o-mini'
             const apiResponse = await fetch(`${aiBaseUrl}/chat/completions`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${aiKey}`,
+                'Authorization': `Bearer ${openaiKey}`,
               },
               body: JSON.stringify({
                 model: aiModel,
