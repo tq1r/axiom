@@ -121,9 +121,34 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Fallback: high-quality simulated response (used when SDK isn't configured)
+          // Fallback: try web search for real-time info, then simulated response
           const lastUser = [...messages].reverse().find((m) => m.role === 'user')
-          const simulated = simulateResponse(lastUser?.content || '', modelConfig.label)
+          const userQuery = lastUser?.content || ''
+
+          // Try web search for general/current events questions
+          if (zai && shouldSearchWeb(userQuery)) {
+            try {
+              const searchResults = await zai.functions.invoke('web_search', {
+                query: userQuery,
+                num: 5,
+              })
+              if (searchResults && searchResults.length > 0) {
+                const summary = formatSearchResults(userQuery, searchResults)
+                const tokens = summary.split(/(\s+)/)
+                for (const t of tokens) {
+                  send({ type: 'token', content: t })
+                  await new Promise((r) => setTimeout(r, 14))
+                }
+                send({ type: 'done' })
+                controller.close()
+                return
+              }
+            } catch {
+              // Search failed — fall through to simulated response
+            }
+          }
+
+          const simulated = simulateResponse(userQuery, modelConfig.label)
           const tokens = simulated.split(/(\s+)/)
           for (const t of tokens) {
             send({ type: 'token', content: t })
@@ -163,16 +188,307 @@ function simulateResponse(userMessage: string, modelName: string): string {
   }
 
   if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
-    return `Hello! I'm **Axiom**, running on ${modelName}. I can help you write code, analyze data, brainstorm ideas, explain concepts, and much more.
-
-What would you like to work on today? You can:
-
-- Ask me to write or debug code
-- Upload a file (PDF, CSV, image) for analysis
-- Use \`/explain\`, \`/summarize\`, or \`/imagine\` slash commands
-- Switch models anytime using the picker below
+    return `Hey! I'm **Axiom**. I can help with pretty much anything — coding, writing, research, math, brainstorming, explaining concepts, or just chatting.
 
 What's on your mind?`
+  }
+
+  // How are you
+  if (msg.includes('how are you') || msg.includes("how's it going") || msg.includes('how are u')) {
+    return `I'm doing well, thanks for asking! Always ready to help with whatever you need — whether that's writing code, drafting an email, researching a topic, or thinking through a problem.
+
+What can I do for you today?`
+  }
+
+  // Who are you / what are you
+  if (msg.includes('who are you') || msg.includes('what are you') || msg.includes('your name')) {
+    return `I'm **Axiom** — an AI assistant that can help you with a wide range of tasks:
+
+- **Coding** — write, debug, and explain code in 40+ languages
+- **Writing** — emails, essays, blog posts, creative fiction
+- **Research** — summarize topics, explain concepts, find information
+- **Math** — calculations, equations, step-by-step solutions
+- **Brainstorming** — ideas, plans, product names, strategies
+- **Analysis** — break down arguments, compare options, weigh tradeoffs
+
+I'm running on the **${modelName}** model. What would you like to work on?`
+  }
+
+  // Politics
+  if (msg.includes('politic') || msg.includes('election') || msg.includes('government') || msg.includes('president') || msg.includes('congress') || msg.includes('parliament')) {
+    return `Here's an overview of the current global political landscape:
+
+## Major developments
+
+**United States**
+The US continues to navigate deep political polarization between Democrats and Republicans. Key issues include immigration policy, healthcare, climate legislation, and foreign policy regarding China, Russia, and the Middle East. Election cycles drive much of the policy momentum.
+
+**Europe**
+The EU is managing the ongoing war in Ukraine, energy independence from Russia, and internal debates about migration and democratic backsliding in member states like Hungary. Economic challenges and the rise of right-wing populist parties are reshaping coalitions.
+
+**China & Asia**
+China continues its rise as a global superpower, with tensions over Taiwan, trade disputes with the US, and the Belt and Road Initiative expanding influence. India is emerging as a major power with its own strategic interests.
+
+**Middle East**
+The Israel-Palestine conflict remains unresolved. Regional powers — Saudi Arabia, Iran, Turkey, UAE — compete for influence. Energy politics and normalization efforts continue to reshape alliances.
+
+**Africa**
+Many African nations are balancing relationships between Western powers, China, and Russia. Coups in the Sahel region, economic challenges, and democratic backsliding are concerns, alongside rapid population growth and tech innovation.
+
+**Latin America**
+Left-right pendulum swings continue across the region. Economic instability, migration, and debates over resource extraction vs. environmental protection dominate.
+
+## Key themes
+- **Multipolarity** — the US is no longer the sole superpower
+- **Technology** — AI, cybersecurity, and disinformation reshape politics
+- **Climate** — increasingly central to domestic and foreign policy
+- **Democracy vs. authoritarianism** — a defining tension of the era
+
+Want me to go deeper on any specific region or topic?`
+  }
+
+  // Science
+  if (msg.includes('science') || msg.includes('physics') || msg.includes('chemistry') || msg.includes('biology') || msg.includes('space') || msg.includes('universe')) {
+    return `Great question about science! Let me break it down:
+
+## The big picture
+
+Science is our best tool for understanding how the universe works — from the smallest subatomic particles to the largest cosmic structures. It's built on the scientific method: observe, hypothesize, test, and refine.
+
+## Key areas
+
+**Physics** studies the fundamental laws governing matter and energy. Current frontiers include quantum computing, fusion energy, and understanding dark matter/dark energy (which together make up ~95% of the universe).
+
+**Biology** explores living systems. CRISPR gene editing, synthetic biology, and our understanding of the microbiome are transforming medicine and agriculture.
+
+**Chemistry** sits between physics and biology — it's about how atoms combine and interact. Materials science is creating new batteries, solar cells, and pharmaceuticals.
+
+**Astronomy** reveals the cosmos. The James Webb Space Telescope is showing us galaxies from the early universe, and we're discovering thousands of exoplanets.
+
+## What makes science work
+
+- **Peer review** — other scientists check your work
+- **Reproducibility** — results must be repeatable
+- **Falsifiability** — theories must be testable and disprovable
+- **Uncertainty** — science is always provisional, always open to revision
+
+Want me to go deeper on any specific area?`
+  }
+
+  // History
+  if (msg.includes('history') || msg.includes('historical') || msg.includes('war') || msg.includes('ancient')) {
+    return `History helps us understand how we got to where we are. Here's a high-level overview:
+
+## Major eras
+
+**Ancient world (3000 BCE – 500 CE)**
+Civilizations emerged in Mesopotamia, Egypt, the Indus Valley, and China. Greece and Rome laid foundations for Western philosophy, law, and governance. Major religions — Hinduism, Buddhism, Judaism, Christianity — took shape.
+
+**Medieval period (500 – 1500 CE)**
+The Islamic Golden Age preserved and expanded knowledge. China developed gunpowder, printing, and navigation. European feudalism eventually gave way to the Renaissance. The Mongol Empire became the largest contiguous land empire in history.
+
+**Early modern (1500 – 1800)**
+The Age of Exploration connected the globe (often destructively). The Scientific Revolution and Enlightenment reshaped thought. The American and French Revolutions established modern democratic ideals. The Industrial Revolution began in Britain.
+
+**Modern era (1800 – present)**
+Industrialization transformed society. Two World Wars reshaped borders and power. The Cold War defined the second half of the 20th century. Decolonization created dozens of new nations. The digital revolution and globalization define our current moment.
+
+## Why history matters
+
+- **Context** — today's conflicts often have deep historical roots
+- **Patterns** — we can spot recurring dynamics (empire collapse, tech disruption)
+- **Humility** — people in the past weren't stupid; they operated with different information
+- **Identity** — understanding our past helps us understand ourselves
+
+Want me to dive into a specific period, event, or region?`
+  }
+
+  // Creative writing
+  if (msg.includes('write a story') || msg.includes('write a poem') || msg.includes('write something') || msg.includes('creative writing') || msg.includes('write a song')) {
+    return `Here's something I wrote for you:
+
+---
+
+The lighthouse keeper had counted every wave for forty years. Not intentionally — the counting just happened, the way breathing happened, the way the light turned happened. 14,600 waves a day, give or take a storm.
+
+She found the bottle on a Tuesday. Green glass, cork sealed with wax, a rolled paper inside thin as a whisper. The handwriting was her mother's.
+
+*"The light isn't for the ships," it said. "It never was. The light is for you — so you know where home is when you're ready to come back."*
+
+She looked at the horizon. Forty years of waves. The light turned. She uncorked the bottle and let the sea take the note, then watched it ride the 14,601st wave of the day toward shore.
+
+---
+
+Want me to adjust the tone, length, or style? I can write in any genre — fiction, poetry, scripts, essays, you name it.`
+  }
+
+  // Food / cooking
+  if (msg.includes('recipe') || msg.includes('cook') || msg.includes('food') || msg.includes('dinner') || msg.includes('meal')) {
+    return `Here's a simple, delicious recipe you can make tonight:
+
+## One-Pan Lemon Herb Chicken
+
+**Ingredients (serves 4):**
+- 4 bone-in chicken thighs
+- 2 tbsp olive oil
+- 1 lemon (half juiced, half sliced)
+- 3 cloves garlic, minced
+- 1 tsp dried oregano
+- 1 tsp dried thyme
+- Salt and pepper to taste
+- Fresh parsley for garnish
+
+**Instructions:**
+
+1. **Preheat** oven to 425°F (220°C)
+2. **Season** the chicken with salt, pepper, oregano, and thyme
+3. **Heat** olive oil in an oven-safe skillet over medium-high heat
+4. **Sear** chicken skin-side down for 5 minutes until golden
+5. **Flip** the chicken, add garlic and cook 1 minute
+6. **Add** lemon juice and lemon slices
+7. **Transfer** to oven and bake 25-30 minutes until internal temp reaches 165°F
+8. **Rest** 5 minutes, then garnish with parsley
+
+**Tips:**
+- Serve with rice, roasted vegetables, or a simple salad
+- The pan juices are liquid gold — spoon them over everything
+- Swap herbs based on what you have (rosemary, sage, basil all work)
+
+Want a different type of recipe — vegetarian, dessert, quick breakfast? Just ask!`
+  }
+
+  // Health / fitness
+  if (msg.includes('workout') || msg.includes('exercise') || msg.includes('fitness') || msg.includes('lose weight') || msg.includes('healthy')) {
+    return `Here's a practical approach to fitness that actually works:
+
+## The basics that matter most
+
+**1. Consistency > intensity**
+A 20-minute workout you do 4 times a week beats a 2-hour workout you do once. Show up regularly.
+
+**2. Strength training is non-negotiable**
+Muscle is metabolically active tissue. It improves posture, bone density, and longevity. You don't need a gym — bodyweight exercises (push-ups, squats, lunges, planks) work great.
+
+**3. Walk more**
+Walking 8,000-10,000 steps daily is one of the highest-ROI health habits. It's low-impact, reduces stress, and improves cardiovascular health.
+
+**4. Sleep is the foundation**
+7-9 hours. Without it, everything else — diet, exercise, mental health — suffers. Protect your sleep schedule.
+
+## A simple weekly routine
+
+- **3x strength** — 30 min, full-body (squats, push-ups, rows, planks)
+- **2x cardio** — 20-30 min (running, cycling, swimming, or just brisk walking)
+- **1x active recovery** — yoga, stretching, or a long walk
+- **1x rest** — actual rest
+
+## On nutrition
+
+- Eat enough protein (~0.8g per lb of bodyweight)
+- Eat mostly whole foods — things that grew or had a mother
+- Don't overthink it — consistency beats perfection
+
+Want me to build you a specific plan based on your goals?`
+  }
+
+  // Travel
+  if (msg.includes('travel') || msg.includes('trip') || msg.includes('vacation') || msg.includes('visit') || msg.includes('itinerary')) {
+    return `I'd love to help you plan! Here's a framework for putting together a great trip:
+
+## Key questions
+
+1. **Where?** — one city, a region, or multiple countries?
+2. **How long?** — a long weekend, a week, two weeks?
+3. **Budget?** — backpacker, mid-range, or luxury?
+4. **Style?** — culture, nature, food, adventure, relaxation?
+5. **When?** — season affects weather, crowds, and prices
+
+## General tips
+
+- **Fly mid-week** for cheaper flights (Tue/Wed are often best)
+- **Stay in neighborhoods** where locals live, not just tourist zones
+- **Eat where there's a line of locals** — that's the best indicator of good food
+- **Book major attractions in advance** to skip lines
+- **Get travel insurance** — it's cheap and saves you if things go wrong
+- **Learn 10 words** of the local language — it goes a long way
+
+## If you tell me where you're thinking of going, I can give you:
+
+- A day-by-day itinerary
+- Specific restaurant recommendations
+- Transportation options
+- What to pack
+- Cultural tips and etiquette
+
+Where are you thinking of traveling?`
+  }
+
+  // Business / startup
+  if (msg.includes('business') || msg.includes('startup') || msg.includes('entrepreneur') || msg.includes('product idea')) {
+    return `Starting a business is exciting. Here's a practical framework:
+
+## The lean approach
+
+**1. Start with the problem, not the solution**
+Most failed startups build something nobody wants. Find a real pain point people are actively trying to solve. Talk to 20 potential customers before writing any code.
+
+**2. Build the smallest thing that could work (MVP)**
+What's the core value? Ship that and nothing else. A landing page, a spreadsheet, a no-code tool — whatever proves people want it.
+
+**3. Charge from day one**
+Free users aren't customers. Even $5/month tells you someone actually values what you built.
+
+**4. Distribution > product**
+A mediocre product with great distribution beats a great product with no distribution. How will people find you? SEO, content, partnerships, ads, community?
+
+## Common traps
+
+- **Building before talking to users** — the #1 killer
+- **Over-engineering** — premature optimization, scaling for users you don't have
+- **Ignoring unit economics** — if CAC > LTV, you don't have a business
+- **Hiring too early** — do things manually until it hurts, then automate/hire
+
+## First steps
+
+1. Write down the problem in one sentence
+2. Find 20 people who have that problem
+3. Ask how they currently solve it (and what they'd pay)
+4. Build the smallest possible version
+5. Get 10 paying customers
+6. Then decide if it's worth going all in
+
+What's your idea? I can help you pressure-test it.`
+  }
+
+  // Philosophy
+  if (msg.includes('philosophy') || msg.includes('meaning of life') || msg.includes('purpose') || msg.includes('existence')) {
+    return `Big question. Philosophers have wrestled with this for millennia. Here are the major perspectives:
+
+## The classic schools
+
+**Existentialism (Sartre, Camus, Kierkegaard)**
+Existence precedes essence — you exist first, then define your own meaning. There's no inherent purpose to life; the freedom to create your own meaning is both liberating and terrifying. Camus argued we must imagine Sisyphus happy — finding meaning in the struggle itself.
+
+**Stoicism (Marcus Aurelius, Epictetus, Seneca)**
+Focus on what you can control (your thoughts, actions, reactions) and accept what you can't (external events, other people's opinions). Virtue — wisdom, courage, justice, temperance — is the highest good. Still wildly practical today.
+
+**Buddhism**
+Life involves suffering, caused by attachment and craving. The path to liberation is through mindfulness, ethical living, and letting go of attachment. Meaning isn't found — it's released into.
+
+**Utilitarianism (Mill, Bentham)**
+The meaning of life is to maximize happiness and minimize suffering, for yourself and others. Act in ways that produce the most good for the most people.
+
+## Modern takes
+
+- ** Viktor Frankl**: Meaning comes from work, love, or courage in suffering
+- **Absurdism**: The search for meaning in a meaningless universe is absurd — but we should do it anyway
+- **Pragmatism**: Truth is what works; meaning is what's useful
+
+## My honest take
+
+Most people who live meaningful lives don't find meaning — they **create** it. Through relationships, work that matters, service to others, curiosity, and engagement with the world. Meaning isn't a treasure you discover; it's something you build, day by day.
+
+What's driving the question?`
   }
 
   if (msg.includes('code') || msg.includes('function') || msg.includes('component') || msg.includes('react')) {
@@ -360,32 +676,87 @@ Thanks all — really proud of where we are.
 Want me to adjust the tone (more formal? more casual?), shorten it, or adapt it for a different audience?`
   }
 
-  return `That's a great question. Let me think through this carefully and give you a thorough answer.
+  return `Here's my take on that:
 
-## My take
+## Quick answer
 
-Here's how I'd approach this:
+${getGeneralAnswer(userMessage)}
 
-1. **Clarify the goal** — what does success look like specifically?
-2. **Identify constraints** — time, budget, technical limitations
-3. **Map the options** — usually there are 2–3 viable paths
-4. **Pick a default** — the boring choice that's most likely to work
+## More context
 
-### Going deeper
+I'm **Axiom**, running on ${modelName}. I can help you with all sorts of things:
 
-The most common mistake people make here is optimizing for the wrong thing. They reach for the clever solution when the simple one would get them 90% of the way there with 10% of the complexity.
+- **Questions** — science, history, politics, current events, general knowledge
+- **Writing** — essays, emails, stories, poems, scripts, blog posts
+- **Coding** — write, debug, and explain code (check out Axiom Studio for a full IDE)
+- **Math** — calculations, equations, step-by-step solutions
+- **Planning** — trips, projects, workouts, meals, business strategies
+- **Brainstorming** — ideas, names, approaches, solutions
 
-> "The best code is no code at all. The second best is code so simple it's obvious."
+Could you give me a bit more detail about what you're looking for? The more specific your question, the better I can help.`
+}
 
-### Practical steps
+/** Generate a general-purpose answer based on keywords in the question */
+function getGeneralAnswer(message: string): string {
+  const msg = message.toLowerCase()
 
-- Start with the simplest version that could possibly work
-- Ship it, measure, and only then add complexity where the data says you need it
-- Document **why** you made each choice, not just **what** you did
+  if (msg.includes('why')) {
+    return `That's a great "why" question. The honest answer is: it depends on the specifics, and there are usually multiple factors at play. If you can share more context — what situation you're thinking about, what you've already considered — I can give you a much more targeted explanation.`
+  }
 
-This is running on **${modelName}**. If you'd like deeper reasoning or a faster response, you can switch models using the picker in the composer below.
+  if (msg.includes('how')) {
+    return `There are a few different ways to approach this, and the best method depends on your specific situation. Generally, I'd recommend starting with the simplest approach, testing it, and iterating from there. Tell me more about what you're trying to do and I'll walk you through it step by step.`
+  }
 
-What specific part would you like me to expand on?`
+  if (msg.includes('best') || msg.includes('recommend')) {
+    return `It depends on what you're optimizing for — speed, cost, quality, and ease of use often trade off against each other. If you tell me your priorities and constraints, I can give you a specific recommendation rather than a generic list.`
+  }
+
+  if (msg.includes('difference')) {
+    return `The main differences come down to how they approach the problem, what tradeoffs they make, and what contexts they're best suited for. Let me know which specific things you're comparing and I'll break down the differences clearly.`
+  }
+
+  return `That's an interesting question. I want to give you a genuinely useful answer rather than a generic one — could you tell me a bit more about what you're looking for? Are you looking for a quick overview, a deep dive, or help with something specific?`
+}
+
+/**
+ * Determine if a question should trigger a web search.
+ * We search for current events, news, recent info, and general knowledge questions.
+ */
+function shouldSearchWeb(message: string): boolean {
+  const msg = message.toLowerCase()
+  // Don't search for code/math
+  if (msg.includes('```') || msg.includes('function ') || msg.includes('const ')) return false
+  if (/\d\s*[+\-*/]\s*\d/.test(msg)) return false
+
+  // Search for current events, news, "latest", "recent", "today"
+  if (msg.includes('news') || msg.includes('latest') || msg.includes('recent') || msg.includes('today') || msg.includes('current')) return true
+
+  // Search for "who is", "what is", "when is", "where is" type questions
+  if (msg.startsWith('who is') || msg.startsWith('what is') || msg.startsWith('when is') || msg.startsWith('where is') || msg.startsWith('how old')) return true
+
+  // Search for people, places, events
+  if (msg.includes('president') || msg.includes('ceo') || msg.includes('happened') || msg.includes('happening')) return true
+
+  return false
+}
+
+/**
+ * Format web search results into a readable response.
+ */
+function formatSearchResults(query: string, results: Array<{ url: string; name: string; snippet: string; host_name?: string; date?: string }>): string {
+  const top = results.slice(0, 4)
+  const formatted = top
+    .map((r, i) => `**${i + 1}. [${r.name}](${r.url})**${r.host_name ? ` — ${r.host_name}` : ''}\n${r.snippet}`)
+    .join('\n\n')
+
+  return `Here's what I found for **"${query}"**:
+
+${formatted}
+
+---
+
+Want me to go deeper on any of these sources? I can read a specific page or search for more details.`
 }
 
 /**
