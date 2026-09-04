@@ -37,12 +37,10 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ open, onClose }: ChatSidebarProps) {
-  const { navigate } = useNav()
+  const { navigate, activeThreadId, setActiveThread } = useNav()
   const {
     threads,
     createThread,
-    setActiveThread,
-    activeThreadId,
     deleteThread,
     togglePin,
     renameThread,
