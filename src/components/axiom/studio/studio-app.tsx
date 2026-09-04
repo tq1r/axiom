@@ -112,13 +112,8 @@ export function StudioApp() {
       if (prev.find((t) => t.id === file.id)) return prev
       return [...prev, { id: file.id, name: file.name, path: file.path }]
     })
-    setTimeout(() => {
-      if (file.language === 'tsx' || file.language === 'typescript') {
-        setGhostText('// Axiom Coder suggestion: useMemo for derived state')
-      } else {
-        setGhostText(null)
-      }
-    }, 1500)
+    // Ghost text disabled — it was confusing with the duplicate display
+    setGhostText(null)
   }
 
   const handleCloseTab = (id: string) => {
@@ -217,6 +212,38 @@ export function StudioApp() {
     setChatInput('')
 
     setAgentRunning(true)
+
+    // Check if this is a greeting or short conversational message, not a build request
+    const lowerPrompt = prompt.toLowerCase()
+    const isGreeting = /^(hi|hey|hello|yo|sup|howdy|hey there|what's up|whats up|good morning|good afternoon|good evening)\b/i.test(lowerPrompt.trim())
+    const isShortQuestion = prompt.length < 30 && (lowerPrompt.includes('?') || lowerPrompt.startsWith('what') || lowerPrompt.startsWith('how') || lowerPrompt.startsWith('why'))
+    const looksLikeBuildRequest = lowerPrompt.includes('build') || lowerPrompt.includes('create') || lowerPrompt.includes('make a') || lowerPrompt.includes('add') || lowerPrompt.includes('component') || lowerPrompt.includes('function') || lowerPrompt.includes('page') || lowerPrompt.includes('app') || lowerPrompt.includes('feature') || lowerPrompt.includes('fix') || lowerPrompt.includes('implement')
+
+    // If it's a greeting or short question that's NOT a build request, just respond like a chat
+    if ((isGreeting || isShortQuestion) && !looksLikeBuildRequest) {
+      const chatStepId = 's_' + uid()
+      addAgentStep({
+        id: chatStepId,
+        type: 'plan',
+        title: 'Axiom',
+        status: 'running',
+        timestamp: Date.now(),
+      })
+
+      const response = await callAI(
+        'You are Axiom, an AI coding assistant inside an IDE. Be friendly, concise, and helpful. If the user just says hi, greet them back and ask what they want to build. Keep it short.',
+        prompt
+      )
+
+      updateAgentStep(chatStepId, {
+        title: 'Axiom',
+        status: 'done',
+        detail: response.trim() || "Hey! I'm the Axiom agent. Tell me what you want to build — like 'Build a todo app' or 'Create a landing page' — and I'll code it up for you.",
+      })
+
+      setAgentRunning(false)
+      return
+    }
 
     // === Step 1: Ask AI for a plan ===
     const planStepId = 's_' + uid()
