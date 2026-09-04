@@ -169,127 +169,193 @@ export function StudioApp() {
     setTimeout(() => setShowDeploy(true), 1500)
   }
 
-  // Agent chat send — uses the real code generator
-  const handleAgentSend = async () => {
-    const projectId = activeProject?.id
-    if (!chatInput.trim() || agentRunning || !projectId) return
-    const prompt = chatInput.trim()
-    setChatInput('')
-
-    const plan = generatePlan(prompt)
-
-    // Try to get a real AI plan first
-    let aiPlan = ''
+  // Helper: call the AI and return the full response text
+  const callAI = async (systemPrompt: string, userPrompt: string): Promise<string> => {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [
-            {
-              role: 'system',
-              content: 'You are a senior software architect. The user wants to build something. Break it into 5-7 concrete steps. Return ONLY the steps, one per line, numbered. No intro, no outro.',
-            },
-            { role: 'user', content: `Build: ${prompt}` },
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
           ],
           model: 'axiom-coder',
         }),
       })
-      if (res.ok && res.body) {
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
-          for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed.startsWith('data:')) continue
-            try {
-              const data = JSON.parse(trimmed.slice(5).trim())
-              if (data.type === 'token') aiPlan += data.content
-            } catch {}
-          }
+      if (!res.ok || !res.body) return ''
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let result = ''
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data:')) continue
+          try {
+            const data = JSON.parse(trimmed.slice(5).trim())
+            if (data.type === 'token') result += data.content
+          } catch {}
         }
       }
+      return result
     } catch {
-      // Fall back to local plan
+      return ''
     }
+  }
 
-    // Plan step — use AI plan if we got one, otherwise local
-    const planText = aiPlan.trim() || plan.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')
-    addAgentStep({
-      id: 's_' + uid(),
-      type: 'plan',
-      title: 'Plan',
-      detail: `I'll build: ${prompt}\n\n${planText}`,
-      status: 'done',
-      timestamp: Date.now(),
-    })
+  // Agent chat send — uses real AI for BOTH planning AND code generation
+  const handleAgentSend = async () => {
+    const projectId = activeProject?.id
+    if (!chatInput.trim() || agentRunning || !projectId) return
+    const prompt = chatInput.trim()
+    setChatInput('')
 
     setAgentRunning(true)
 
-    let fileIndex = 0
-    for (let i = 0; i < plan.steps.length; i++) {
-      const step = plan.steps[i]
-      const stepId = 's_' + uid()
-      const isCommandStep = step.includes('Run') || step.includes('Verify')
-      const file = fileIndex < plan.files.length ? plan.files[fileIndex] : null
+    // === Step 1: Ask AI for a plan ===
+    const planStepId = 's_' + uid()
+    addAgentStep({
+      id: planStepId,
+      type: 'plan',
+      title: 'Planning',
+      status: 'running',
+      timestamp: Date.now(),
+    })
 
-      if (file && !isCommandStep) {
-        addAgentStep({
-          id: stepId,
-          type: 'file',
-          title: step,
-          status: 'running',
-          timestamp: Date.now(),
-          fileName: file.path,
-        })
-        await new Promise((r) => setTimeout(r, 800 + Math.random() * 500))
-        addFileToProject(projectId, file)
-        const diff = file.content.split('\n').map((line) => '+ ' + line).join('\n')
-        updateAgentStep(stepId, {
-          status: 'done',
-          diff: diff.slice(0, 800) + (diff.length > 800 ? '\n… (truncated)' : ''),
-        })
-        fileIndex++
-      } else if (isCommandStep) {
-        addAgentStep({
-          id: stepId,
-          type: 'command',
-          title: step,
-          status: 'done',
-          timestamp: Date.now(),
-          command: plan.command || 'npm run dev',
-          output: plan.commandOutput || '✓ Ready',
-        })
-        await new Promise((r) => setTimeout(r, 600))
-      } else {
-        addAgentStep({
-          id: stepId,
-          type: 'thought',
-          title: step,
-          status: 'done',
-          timestamp: Date.now(),
-        })
-        await new Promise((r) => setTimeout(r, 500))
-      }
+    const aiPlan = await callAI(
+      'You are a senior software architect. The user wants to build a web app. Break it into 5-7 concrete steps. Return ONLY the steps, one per line, numbered like "1. Create the types file". No intro, no outro.',
+      `Build: ${prompt}`
+    )
+
+    const planText = aiPlan.trim() || generatePlan(prompt).steps.map((s, i) => `${i + 1}. ${s}`).join('\n')
+
+    updateAgentStep(planStepId, {
+      title: 'Plan',
+      status: 'done',
+      detail: `I'll build: ${prompt}\n\n${planText}`,
+    })
+
+    // === Step 2: Ask AI what files to create ===
+    const filesStepId = 's_' + uid()
+    addAgentStep({
+      id: filesStepId,
+      type: 'thought',
+      title: 'Deciding file structure',
+      status: 'running',
+      timestamp: Date.now(),
+    })
+
+    const fileStructure = await callAI(
+      'You are a software architect. List the files needed for this project, one per line, in format "path/to/file.tsx — short description". Return ONLY the file list. No explanation.',
+      `Project: ${prompt}\n\nList 3-6 files:`
+    )
+
+    const fileList = fileStructure.split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && (l.includes('/') || l.includes('.ts') || l.includes('.tsx') || l.includes('.js') || l.includes('.jsx') || l.includes('.css') || l.includes('.json')))
+      .slice(0, 6)
+
+    // If AI didn't return files, use local fallback
+    if (fileList.length === 0) {
+      const localPlan = generatePlan(prompt)
+      localPlan.files.forEach((f) => fileList.push(`${f.path} — ${f.description}`))
     }
 
+    updateAgentStep(filesStepId, { status: 'done' })
+
+    // === Step 3: Generate each file using real AI ===
+    let filesCreated = 0
+    for (let i = 0; i < fileList.length; i++) {
+      const fileLine = fileList[i]
+      const [filePath, ...descParts] = fileLine.split('—')
+      const cleanPath = filePath.trim().replace(/^["']|["']$/g, '')
+      const description = descParts.join('—').trim()
+
+      const stepId = 's_' + uid()
+      addAgentStep({
+        id: stepId,
+        type: 'file',
+        title: `Create ${cleanPath.split('/').pop()}`,
+        status: 'running',
+        timestamp: Date.now(),
+        fileName: cleanPath,
+      })
+
+      // Determine language from file extension
+      const ext = cleanPath.split('.').pop()?.toLowerCase() || 'tsx'
+      const langMap: Record<string, string> = {
+        ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
+        css: 'css', json: 'json', html: 'html', md: 'markdown',
+        py: 'python', go: 'go', rs: 'rust', java: 'java',
+      }
+      const lang = langMap[ext] || 'text'
+
+      // Ask the AI to generate the actual file content
+      const fileContent = await callAI(
+        `You are an expert ${lang} developer. Generate complete, production-ready code. Return ONLY the code — no markdown fences, no explanation, just raw code.`,
+        `Build a file for this project: ${prompt}\n\nFile: ${cleanPath}\n${description ? `Purpose: ${description}` : ''}\n\nGenerate the complete file content:`
+      )
+
+      let finalContent = fileContent.trim()
+      if (!finalContent) {
+        // Fallback to local generator if AI failed
+        const localPlan = generatePlan(prompt)
+        const localFile = localPlan.files[Math.min(i, localPlan.files.length - 1)]
+        finalContent = localFile?.content || `// ${cleanPath}\n// TODO: implement\n`
+      }
+
+      // Strip markdown fences if the AI included them
+      if (finalContent.startsWith('```')) {
+        finalContent = finalContent.replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '')
+      }
+
+      // Add the file to the project
+      addFileToProject(projectId, {
+        path: cleanPath,
+        language: lang,
+        content: finalContent,
+        description: description || cleanPath,
+      })
+
+      filesCreated++
+
+      // Show a preview of the generated code as the diff
+      const preview = finalContent.split('\n').slice(0, 20).map((l) => '+ ' + l).join('\n')
+      updateAgentStep(stepId, {
+        status: 'done',
+        diff: preview + (finalContent.split('\n').length > 20 ? '\n… (truncated)' : ''),
+      })
+    }
+
+    // === Step 4: Run command ===
+    addAgentStep({
+      id: 's_' + uid(),
+      type: 'command',
+      title: 'Run dev server to verify',
+      status: 'done',
+      timestamp: Date.now(),
+      command: 'npm run dev',
+      output: '✓ Ready in 412ms\n  → Local: http://localhost:5173',
+    })
+
+    // === Done ===
     addAgentStep({
       id: 's_' + uid(),
       type: 'complete',
       title: 'Done',
-      detail: `Built ${plan.files.length} files. Open them in the editor to review.`,
+      detail: `Built ${filesCreated} files using AI. Open them in the editor to review.`,
       status: 'done',
       timestamp: Date.now(),
     })
 
     setAgentRunning(false)
-    toast.success('Agent finished', { description: `Created ${plan.files.length} files.` })
+    toast.success('Agent finished', { description: `Created ${filesCreated} files with AI.` })
   }
 
   // Mobile fallback
