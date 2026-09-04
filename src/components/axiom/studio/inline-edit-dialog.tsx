@@ -52,9 +52,65 @@ export function InlineEditDialog({
     setLoading(true)
     setDiff(null)
 
-    // Simulate AI generating a diff
-    await new Promise((r) => setTimeout(r, 1200))
+    try {
+      // Try real AI via the chat API
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a code editor. The user selected code and wants you to modify it. Return ONLY the modified code — no explanation, no markdown fences, just the raw code.',
+            },
+            {
+              role: 'user',
+              content: `Selected code:\n\n${selectedCode}\n\nInstruction: ${prompt}\n\nReturn only the modified code:`,
+            },
+          ],
+          model: 'axiom-coder',
+        }),
+      })
 
+      if (res.ok && res.body) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let aiContent = ''
+        let buffer = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed.startsWith('data:')) continue
+            try {
+              const data = JSON.parse(trimmed.slice(5).trim())
+              if (data.type === 'token') aiContent += data.content
+              if (data.type === 'done') break
+            } catch {}
+          }
+        }
+
+        if (aiContent.trim()) {
+          // Strip markdown code fences if present
+          let cleanCode = aiContent.trim()
+          if (cleanCode.startsWith('```')) {
+            cleanCode = cleanCode.replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '')
+          }
+          setDiff({ before: selectedCode, after: cleanCode.trim() })
+          setLoading(false)
+          return
+        }
+      }
+    } catch {
+      // Fall through to local generation
+    }
+
+    // Fallback: local pattern-matched edit
+    await new Promise((r) => setTimeout(r, 800))
     const result = generateEdit(selectedCode, prompt)
     setDiff(result)
     setLoading(false)

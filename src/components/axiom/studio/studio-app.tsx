@@ -178,12 +178,54 @@ export function StudioApp() {
 
     const plan = generatePlan(prompt)
 
-    // Plan step
+    // Try to get a real AI plan first
+    let aiPlan = ''
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a senior software architect. The user wants to build something. Break it into 5-7 concrete steps. Return ONLY the steps, one per line, numbered. No intro, no outro.',
+            },
+            { role: 'user', content: `Build: ${prompt}` },
+          ],
+          model: 'axiom-coder',
+        }),
+      })
+      if (res.ok && res.body) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed.startsWith('data:')) continue
+            try {
+              const data = JSON.parse(trimmed.slice(5).trim())
+              if (data.type === 'token') aiPlan += data.content
+            } catch {}
+          }
+        }
+      }
+    } catch {
+      // Fall back to local plan
+    }
+
+    // Plan step — use AI plan if we got one, otherwise local
+    const planText = aiPlan.trim() || plan.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')
     addAgentStep({
       id: 's_' + uid(),
       type: 'plan',
       title: 'Plan',
-      detail: `I'll build: ${prompt}\n\nSteps:\n${plan.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`,
+      detail: `I'll build: ${prompt}\n\n${planText}`,
       status: 'done',
       timestamp: Date.now(),
     })
