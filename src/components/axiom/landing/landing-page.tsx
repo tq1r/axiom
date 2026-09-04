@@ -67,16 +67,16 @@ export function LandingPage() {
         <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
           <AxiomLogo size={26} />
           <nav className="hidden md:flex items-center gap-8 text-sm">
-            <button onClick={() => navigate('models')} className="text-muted-foreground hover:text-foreground transition-colors">Models</button>
-            <button onClick={() => navigate('pricing')} className="text-muted-foreground hover:text-foreground transition-colors">Pricing</button>
-            <button onClick={() => navigate('studio')} className="text-muted-foreground hover:text-foreground transition-colors">Studio</button>
-            <button onClick={() => navigate('chat')} className="text-muted-foreground hover:text-foreground transition-colors">Chat</button>
+            <button onClick={() => navigate('models')} className="text-foreground/70 hover:text-foreground transition-colors font-medium">Models</button>
+            <button onClick={() => navigate('pricing')} className="text-foreground/70 hover:text-foreground transition-colors font-medium">Pricing</button>
+            <button onClick={() => navigate('studio')} className="text-foreground/70 hover:text-foreground transition-colors font-medium">Studio</button>
+            <button onClick={() => navigate('chat')} className="text-foreground/70 hover:text-foreground transition-colors font-medium">Chat</button>
           </nav>
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <button
               onClick={() => { setAuthMode('signin'); navigate('auth') }}
-              className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="hidden sm:block text-sm text-foreground/70 hover:text-foreground transition-colors font-medium"
             >
               Sign in
             </button>
@@ -105,19 +105,17 @@ export function LandingPage() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="flex items-center gap-3 mb-8 text-xs font-mono uppercase tracking-wider text-muted-foreground"
+                className="inline-flex items-center gap-2 mb-8 rounded-full border hairline bg-[var(--card)] px-3 py-1.5 text-xs text-muted-foreground"
               >
-                <span className="flex h-1.5 w-1.5 rounded-full bg-[var(--tangerine)]" />
-                Issue 01 · September 2026
-                <span className="text-[var(--rule)]">/</span>
-                <span>Now with Axiom Studio</span>
+                <span className="flex h-1.5 w-1.5 rounded-full bg-[var(--tangerine)] animate-pulse" />
+                Now with Axiom Studio — your AI-native IDE
               </motion.div>
 
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.05 }}
-                className="font-serif text-[3.5rem] sm:text-[4.5rem] lg:text-[5.5rem] leading-[0.95] tracking-[-0.02em] font-medium"
+                className="font-serif text-[3.5rem] sm:text-[4.5rem] lg:text-[5.5rem] leading-[0.98] tracking-[-0.02em] font-medium"
               >
                 Ask anything.
                 <br />
@@ -128,9 +126,9 @@ export function LandingPage() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.15 }}
-                className="mt-8 max-w-md text-lg text-muted-foreground leading-relaxed"
+                className="mt-8 max-w-md text-lg text-foreground/70 leading-[1.6]"
               >
-                Two products, one account. <span className="text-foreground">Axiom Chat</span> thinks with you. <span className="text-foreground">Axiom Studio</span> builds with you. Pick a tool, or use both — they share a brain.
+                Two products, one account. <span className="text-foreground font-medium">Axiom Chat</span> thinks with you. <span className="text-foreground font-medium">Axiom Studio</span> builds with you. Pick a tool, or use both — they share a brain.
               </motion.p>
 
               <motion.div
@@ -437,40 +435,40 @@ export function LandingPage() {
 
 function SpecimenCard() {
   return (
-    <div className="paper-card rounded-xl overflow-hidden">
+    <div className="paper-card rounded-2xl overflow-hidden shadow-lg">
       {/* Window chrome — minimal */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b hairline bg-[var(--background-2)]">
-        <div className="flex gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-[var(--tangerine)]/60" />
-          <div className="h-2.5 w-2.5 rounded-full bg-[var(--ochre)]/60" />
-          <div className="h-2.5 w-2.5 rounded-full bg-[var(--forest)]/60" />
+      <div className="flex items-center justify-between px-4 py-3 border-b hairline bg-[var(--background-2)]">
+        <div className="flex gap-2">
+          <div className="h-3 w-3 rounded-full bg-[var(--tangerine)]/70" />
+          <div className="h-3 w-3 rounded-full bg-[var(--ochre)]/70" />
+          <div className="h-3 w-3 rounded-full bg-[var(--forest)]/70" />
         </div>
         <div className="font-mono text-[10px] text-muted-foreground">axiom · chat</div>
-        <div className="w-8" />
+        <div className="w-12" />
       </div>
       {/* Content — a real exchange */}
-      <div className="p-5 space-y-4">
-        <div className="flex gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--secondary)] text-[10px] font-medium font-mono">YO</div>
-          <div className="flex-1 text-sm">
-            <div className="text-xs text-muted-foreground mb-0.5">You</div>
-            <p>Write a hook for debouncing a value.</p>
+      <div className="p-6 space-y-5">
+        <div className="flex gap-3 items-start">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--secondary)] text-[10px] font-medium font-mono">YO</div>
+          <div className="flex-1 text-sm pt-0.5">
+            <div className="text-[11px] text-muted-foreground mb-1">You</div>
+            <p className="text-foreground/90">Write a hook for debouncing a value.</p>
           </div>
         </div>
-        <div className="flex gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--tangerine)]">
-            <Sparkles className="h-3.5 w-3.5 text-white" />
+        <div className="flex gap-3 items-start">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--tangerine)]">
+            <Sparkles className="h-4 w-4 text-white" />
           </div>
-          <div className="flex-1 text-sm">
-            <div className="text-xs text-muted-foreground mb-0.5 flex items-center gap-1.5">
+          <div className="flex-1 text-sm pt-0.5">
+            <div className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1.5">
               Axiom · <ModelBadge modelId="axiom-coder" size="sm" showName={false} />
             </div>
-            <div className="rounded-lg border hairline bg-[var(--background-2)] p-3 font-mono text-[11px] leading-relaxed overflow-hidden">
-              <div><span className="text-[var(--tangerine)]">export function</span> <span className="text-[var(--forest)]">useDebounce</span>&lt;T&gt;(</div>
+            <div className="rounded-lg border hairline bg-[var(--background-2)] p-3.5 font-mono text-[11px] leading-[1.7] overflow-hidden">
+              <div><span className="text-[var(--tangerine)]">export function</span> <span className="text-[#4A6FA5]">useDebounce</span>&lt;T&gt;(</div>
               <div className="pl-3">value: T, delay = <span className="text-[var(--ochre)]">300</span></div>
               <div>) {'{'}</div>
               <div className="pl-3"><span className="text-[var(--tangerine)]">const</span> [debounced, setDebounced] =</div>
-              <div className="pl-6"><span className="text-[var(--forest)]">useState</span>(value);</div>
+              <div className="pl-6"><span className="text-[#4A6FA5]">useState</span>(value);</div>
               <div className="pl-3"><span className="text-[var(--tangerine)]">return</span> debounced;</div>
               <div>{'}'}</div>
             </div>
@@ -478,11 +476,11 @@ function SpecimenCard() {
         </div>
       </div>
       {/* Composer hint */}
-      <div className="border-t hairline px-4 py-2.5 bg-[var(--background-2)] flex items-center justify-between">
-        <div className="text-xs text-muted-foreground font-mono">Reply to Axiom…</div>
+      <div className="border-t hairline px-4 py-3 bg-[var(--background-2)] flex items-center justify-between">
+        <div className="text-xs text-muted-foreground">Reply to Axiom…</div>
         <div className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--tangerine)] animate-pulse" />
-          <span className="text-[10px] text-muted-foreground">streaming</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--forest)] animate-pulse" />
+          <span className="text-[10px] text-muted-foreground">ready</span>
         </div>
       </div>
     </div>
