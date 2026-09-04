@@ -192,8 +192,11 @@ function simulateResponse(userMessage: string, modelName: string): string {
     return mathResult
   }
 
-  if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
-    return `Hey! I'm **Axiom**. I can help with pretty much anything — coding, writing, research, math, brainstorming, explaining concepts, or just chatting.
+  // Greetings — include casual ones like yo, yooo, sup, whats up
+  if (msg.includes('hello') || msg.includes('hey') || /^hi\b/.test(msg) || msg.trim() === 'hi' ||
+      msg.includes('yo') || msg.includes('sup') || msg.includes("what's up") || msg.includes('whats up') ||
+      msg.includes('howdy') || msg.includes('greetings')) {
+    return `Hey! I'm **Axiom**. I can help with pretty much anything — homework, coding, writing, research, math, brainstorming, or just chatting.
 
 What's on your mind?`
   }
@@ -688,6 +691,12 @@ Want me to adjust the tone (more formal? more casual?), shorten it, or adapt it 
 /** Generate a helpful, specific answer based on the question */
 function generateHelpfulAnswer(message: string, modelName: string): string {
   const msg = message.toLowerCase()
+  const trimmed = message.trim()
+
+  // Short/casual messages — just respond conversationally
+  if (trimmed.length < 10 && !msg.includes('?') && !msg.includes('what') && !msg.includes('how') && !msg.includes('why')) {
+    return `Hey! What's up? I'm here if you need help with anything — homework, coding, writing, research, math, or just want to chat. What do you need?`
+  }
 
   // Homework help
   if (msg.includes('homework') || msg.includes('assignment') || msg.includes('essay') || msg.includes('study') || msg.includes('test') || msg.includes('exam')) {
