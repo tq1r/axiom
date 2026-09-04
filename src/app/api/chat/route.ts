@@ -62,7 +62,63 @@ export async function POST(req: NextRequest) {
         }
 
         try {
-          // Try real ZAI SDK
+          // === Option 1: Use any OpenAI-compatible API via env vars ===
+          // Set these in Vercel: Settings → Environment Variables
+          // AI_API_KEY = your key (from OpenAI, Groq, Together, etc.)
+          // AI_BASE_URL = the API base URL (e.g. https://api.openai.com/v1)
+          // AI_MODEL = the model name (e.g. gpt-4o-mini, llama-3.1-8b-instant)
+          const aiKey = process.env.AI_API_KEY
+          const aiBaseUrl = process.env.AI_BASE_URL || 'https://api.openai.com/v1'
+          const aiModel = process.env.AI_MODEL || 'gpt-4o-mini'
+
+          if (aiKey) {
+            // Stream via OpenAI-compatible API
+            const apiResponse = await fetch(`${aiBaseUrl}/chat/completions`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${aiKey}`,
+              },
+              body: JSON.stringify({
+                model: aiModel,
+                messages: fullMessages,
+                stream: true,
+              }),
+            })
+
+            if (apiResponse.ok && apiResponse.body) {
+              const reader = apiResponse.body.getReader()
+              const decoder = new TextDecoder()
+              let buffer = ''
+              while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                buffer += decoder.decode(value, { stream: true })
+                const lines = buffer.split('\n')
+                buffer = lines.pop() || ''
+                for (const line of lines) {
+                  const trimmed = line.trim()
+                  if (!trimmed.startsWith('data:')) continue
+                  const jsonStr = trimmed.slice(5).trim()
+                  if (jsonStr === '[DONE]') continue
+                  try {
+                    const parsed = JSON.parse(jsonStr)
+                    const delta = parsed?.choices?.[0]?.delta?.content
+                    if (delta) {
+                      send({ type: 'token', content: delta })
+                    }
+                  } catch {
+                    // partial JSON
+                  }
+                }
+              }
+              send({ type: 'done' })
+              controller.close()
+              return
+            }
+          }
+
+          // === Option 2: Try the z-ai SDK (works in sandbox) ===
           let zai: Awaited<ReturnType<typeof ZAI.create>> | null = null
           try {
             zai = await ZAI.create()
