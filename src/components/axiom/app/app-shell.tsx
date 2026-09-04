@@ -51,10 +51,10 @@ const NAV_ITEMS = [
 ] as const
 
 export function AppShell({ children, activeView, embedded = false }: AppShellProps) {
-  const { navigate, setCommandOpen } = useNav()
+  const { navigate, setCommandOpen, setActiveThread, setActiveProject, setActiveFile } = useNav()
   const { user, signOut } = useUser()
-  const { threads, createThread, setActiveThread } = useChat()
-  const { projects, createProject, setActiveProject, setActiveFile } = useStudio()
+  const { threads, createThread } = useChat()
+  const { projects, createProject } = useStudio()
   const [collapsed, setCollapsed] = useState(false)
 
   const handleNewChat = () => {
@@ -82,13 +82,13 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
       {/* Left rail */}
       <aside
         className={cn(
-          'flex flex-col border-r border-sidebar-border bg-sidebar shrink-0 transition-all duration-200',
+          'flex flex-col border-r hairline bg-[var(--sidebar)] shrink-0 transition-all duration-200',
           collapsed ? 'w-[60px]' : 'w-[248px]',
           embedded && 'hidden lg:flex'
         )}
       >
         {/* Logo + collapse */}
-        <div className="flex items-center justify-between h-14 px-3 border-b border-sidebar-border shrink-0">
+        <div className="flex items-center justify-between h-14 px-3 border-b hairline shrink-0">
           {collapsed ? (
             <button onClick={() => navigate('dashboard')} className="mx-auto">
               <AxiomLogo size={26} showWordmark={false} />
@@ -101,7 +101,7 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--sidebar)]-accent hover:text-foreground transition-colors"
               aria-label="Collapse sidebar"
             >
               <PanelLeftClose className="h-4 w-4" />
@@ -110,14 +110,14 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
         </div>
 
         {/* Search / command */}
-        <div className="p-2 border-b border-sidebar-border shrink-0">
+        <div className="p-2 border-b hairline shrink-0">
           {collapsed ? (
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => setCommandOpen(true)}
-                    className="mx-auto flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+                    className="mx-auto flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--sidebar)]-accent hover:text-foreground transition-colors"
                   >
                     <Search className="h-4 w-4" />
                   </button>
@@ -128,7 +128,7 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
           ) : (
             <button
               onClick={() => setCommandOpen(true)}
-              className="w-full flex items-center gap-2 h-9 px-3 rounded-md border border-sidebar-border bg-sidebar-accent/50 text-sm text-muted-foreground hover:bg-sidebar-accent transition-colors"
+              className="w-full flex items-center gap-2 h-9 px-3 rounded-md border hairline bg-[var(--sidebar)]-accent/50 text-sm text-muted-foreground hover:bg-[var(--sidebar)]-accent transition-colors"
             >
               <Search className="h-3.5 w-3.5" />
               <span className="flex-1 text-left">Search…</span>
@@ -138,7 +138,7 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
         </div>
 
         {/* Quick actions */}
-        <div className="p-2 space-y-1 border-b border-sidebar-border shrink-0">
+        <div className="p-2 space-y-1 border-b hairline shrink-0">
           {collapsed ? (
             <>
               <TooltipProvider delayDuration={0}>
@@ -146,7 +146,7 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
                   <TooltipTrigger asChild>
                     <button
                       onClick={handleNewChat}
-                      className="mx-auto flex h-9 w-9 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-violet-500 text-white hover:opacity-90 transition-opacity"
+                      className="mx-auto flex h-9 w-9 items-center justify-center rounded-md bg-[var(--tangerine)] text-white hover:opacity-90 transition-opacity"
                     >
                       <MessageSquare className="h-4 w-4" />
                     </button>
@@ -159,7 +159,7 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
                   <TooltipTrigger asChild>
                     <button
                       onClick={handleNewProject}
-                      className="mx-auto flex h-9 w-9 items-center justify-center rounded-md bg-gradient-to-br from-cyan-400 to-teal-500 text-white hover:opacity-90 transition-opacity"
+                      className="mx-auto flex h-9 w-9 items-center justify-center rounded-md bg-[var(--forest)] text-white hover:opacity-90 transition-opacity"
                     >
                       <Code2 className="h-4 w-4" />
                     </button>
@@ -172,9 +172,9 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
             <>
               <button
                 onClick={handleNewChat}
-                className="w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors group"
+                className="w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-sm text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar)]-accent transition-colors group"
               >
-                <div className="flex h-5 w-5 items-center justify-center rounded bg-gradient-to-br from-indigo-500 to-violet-500">
+                <div className="flex h-5 w-5 items-center justify-center rounded bg-[var(--tangerine)]">
                   <MessageSquare className="h-3 w-3 text-white" />
                 </div>
                 <span className="flex-1 text-left">New chat</span>
@@ -182,9 +182,9 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
               </button>
               <button
                 onClick={handleNewProject}
-                className="w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors group"
+                className="w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-sm text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar)]-accent transition-colors group"
               >
-                <div className="flex h-5 w-5 items-center justify-center rounded bg-gradient-to-br from-cyan-400 to-teal-500">
+                <div className="flex h-5 w-5 items-center justify-center rounded bg-[var(--forest)]">
                   <Code2 className="h-3 w-3 text-white" />
                 </div>
                 <span className="flex-1 text-left">New project</span>
@@ -196,7 +196,7 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
 
         {/* Recent threads (only when expanded and not in studio) */}
         {!collapsed && activeView !== 'studio' && threads.length > 0 && (
-          <div className="flex-1 min-h-0 overflow-y-auto axiom-scroll-thin p-2">
+          <div className="flex-1 min-h-0 overflow-y-auto scroll-thin p-2">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1.5">Recent chats</div>
             {threads.slice(0, 8).map((t) => (
               <button
@@ -206,8 +206,8 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
                   navigate('chat')
                 }}
                 className={cn(
-                  'w-full flex items-center gap-2 h-8 px-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors group',
-                  activeView === 'chat' && 'bg-sidebar-accent text-foreground'
+                  'w-full flex items-center gap-2 h-8 px-2 rounded-md text-sm text-muted-foreground hover:bg-[var(--sidebar)]-accent hover:text-foreground transition-colors group',
+                  activeView === 'chat' && 'bg-[var(--sidebar)]-accent text-foreground'
                 )}
               >
                 <MessageSquare className="h-3 w-3 shrink-0" />
@@ -225,8 +225,8 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
                       navigate('studio')
                     }}
                     className={cn(
-                      'w-full flex items-center gap-2 h-8 px-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors group',
-                      activeView === 'studio' && 'bg-sidebar-accent text-foreground'
+                      'w-full flex items-center gap-2 h-8 px-2 rounded-md text-sm text-muted-foreground hover:bg-[var(--sidebar)]-accent hover:text-foreground transition-colors group',
+                      activeView === 'studio' && 'bg-[var(--sidebar)]-accent text-foreground'
                     )}
                   >
                     <Code2 className="h-3 w-3 shrink-0" />
@@ -241,7 +241,7 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
         {collapsed && <div className="flex-1" />}
 
         {/* Nav items */}
-        <nav className="p-2 border-t border-sidebar-border shrink-0 space-y-0.5">
+        <nav className="p-2 border-t hairline shrink-0 space-y-0.5">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon
             const active = activeView === item.id
@@ -255,8 +255,8 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
                         className={cn(
                           'mx-auto flex h-9 w-9 items-center justify-center rounded-md transition-colors',
                           active
-                            ? 'bg-sidebar-accent text-foreground'
-                            : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
+                            ? 'bg-[var(--sidebar)]-accent text-foreground'
+                            : 'text-muted-foreground hover:bg-[var(--sidebar)]-accent hover:text-foreground'
                         )}
                       >
                         <Icon className="h-4 w-4" />
@@ -274,8 +274,8 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
                 className={cn(
                   'w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-sm transition-colors',
                   active
-                    ? 'bg-sidebar-accent text-foreground font-medium'
-                    : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
+                    ? 'bg-[var(--sidebar)]-accent text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-[var(--sidebar)]-accent hover:text-foreground'
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -286,16 +286,16 @@ export function AppShell({ children, activeView, embedded = false }: AppShellPro
         </nav>
 
         {/* User + theme */}
-        <div className="p-2 border-t border-sidebar-border shrink-0">
+        <div className="p-2 border-t hairline shrink-0">
           <div className={cn('flex items-center gap-2', collapsed && 'flex-col')}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className={cn(
-                  'flex items-center gap-2 rounded-md hover:bg-sidebar-accent transition-colors min-w-0',
+                  'flex items-center gap-2 rounded-md hover:bg-[var(--sidebar)]-accent transition-colors min-w-0',
                   collapsed ? 'h-9 w-9 justify-center' : 'h-9 px-2 flex-1'
                 )}>
                   <Avatar className="h-7 w-7 shrink-0">
-                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-cyan-400 text-white text-xs">
+                    <AvatarFallback className="bg-[var(--tangerine)] text-white text-xs">
                       {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </AvatarFallback>
                   </Avatar>

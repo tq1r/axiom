@@ -31,9 +31,9 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 export function LandingPage() {
-  const { navigate, setAuthMode } = useNav()
-  const { createThread, setActiveThread } = useChat()
-  const { createProject, setActiveProject, setActiveFile } = useStudio()
+  const { navigate, setAuthMode, setActiveThread, setActiveProject, setActiveFile } = useNav()
+  const { createThread } = useChat()
+  const { createProject } = useStudio()
   const { user } = useUser()
   const { scrollY } = useScroll()
   const heroY = useTransform(scrollY, [0, 600], [0, 80])

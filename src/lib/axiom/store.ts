@@ -10,7 +10,7 @@ import type {
   AgentStep,
 } from './types'
 import { DEFAULT_CHAT_MODEL, DEFAULT_STUDIO_MODEL } from './models'
-import { SAMPLE_PROJECT, uid } from './sample-data'
+import { uid } from './sample-data'
 
 // ============ NAVIGATION STORE ============
 interface NavState {
@@ -56,8 +56,8 @@ export const useNav = create<NavState>()(
         set({ view, commandOpen: false }),
     }),
     {
-      name: 'axiom-nav',
-      partialize: (s) => ({ view: s.view }),
+      name: 'axiom-nav-v3',
+      partialize: (s) => ({ view: s.view, activeThreadId: s.activeThreadId, activeProjectId: s.activeProjectId }),
     }
   )
 )
@@ -181,7 +181,7 @@ export const useUser = create<UserState>()(
       signOut: () => set({ user: null, authError: null }),
     }),
     {
-      name: 'axiom-user',
+      name: 'axiom-user-v2',
       partialize: (s) => ({ user: s.user }),
     }
   )
@@ -315,7 +315,7 @@ export const useChat = create<ChatState>()(
       getThread: (id) => (id ? undefined : undefined),
     }),
     {
-      name: 'axiom-chat-v2',
+      name: 'axiom-chat-v3',
       partialize: (s) => ({ threads: s.threads.slice(0, 30) }),
     }
   )
@@ -346,7 +346,7 @@ interface StudioState {
 export const useStudio = create<StudioState>()(
   persist(
     (set) => ({
-      projects: [SAMPLE_PROJECT],
+      projects: [],
       bottomPanel: 'terminal',
       aiPanelOpen: true,
       agentSteps: [],
@@ -395,7 +395,7 @@ export const useStudio = create<StudioState>()(
       clearAgentSteps: () => set({ agentSteps: [] }),
     }),
     {
-      name: 'axiom-studio',
+      name: 'axiom-studio-v2',
       partialize: (s) => ({ projects: s.projects }),
     }
   )
@@ -449,17 +449,12 @@ function findFileByPath(files: ProjectFile[], path: string): ProjectFile | null 
 
 function buildProjectFromTemplate(id: string, name: string, template: string): StudioProject {
   const now = Date.now()
-  const baseFiles: ProjectFile[] = SAMPLE_PROJECT.files.map((f) => ({
-    ...f,
-    id: 'f_' + uid(),
-    children: f.children?.map((c) => ({ ...c, id: 'f_' + uid() })),
-  }))
   return {
     id,
     name,
     template,
     description: `A ${template} project`,
-    files: baseFiles,
+    files: [],
     createdAt: now,
     updatedAt: now,
     language: 'typescript',
