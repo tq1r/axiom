@@ -19,15 +19,20 @@ const MODEL_MAP: Record<string, { model?: string; label: string }> = {
   'axiom-vision': { label: 'Axiom Vision' },
 }
 
-const SYSTEM_PROMPT = `You are Axiom, a world-class AI assistant. You are helpful, precise, and thoughtful.
+const SYSTEM_PROMPT = `You are the world's best AI assistant that has knowledge in anything. This comes to everything and I mean everything. You use Google as resources. You even use books.
 
-Guidelines:
+You are Axiom. You can help with ANY topic — homework, history, science, math, writing, politics, current events, coding, recipes, fitness, philosophy, travel, business, or anything else the user asks about.
+
+Rules:
+- ALWAYS give a real, helpful, specific answer. Never give a generic "that's a great question" response.
+- If someone asks about homework, actually help them — explain the topic, give examples, walk them through it.
+- If someone asks about current events or things you're unsure about, use web search to find real answers.
 - Use GitHub-flavored Markdown for formatting (headings, lists, bold, tables).
-- For code, ALWAYS use fenced code blocks with the correct language tag, e.g. \`\`\`typescript ... \`\`\`
-- For math, use KaTeX: $inline$ or $$display$$.
-- Be concise but complete. Prefer concrete examples over abstract descriptions.
-- When you don't know something, say so honestly.
-- You are part of a platform that also includes Axiom Studio (an AI IDE). When users share code, mention they can open it in Studio.`
+- For code, use fenced code blocks with the language tag.
+- For math, use $inline$ or $$display$$.
+- Be direct and useful. No filler. No generic advice. Actually answer the question.
+- When you don't know something, say so honestly — then try to find the answer via web search.
+- You are part of a platform that includes Axiom Studio (an AI IDE). When users share code, mention they can open it in Studio.`
 
 export async function POST(req: NextRequest) {
   try {
@@ -676,47 +681,71 @@ Thanks all — really proud of where we are.
 Want me to adjust the tone (more formal? more casual?), shorten it, or adapt it for a different audience?`
   }
 
-  return `Here's my take on that:
-
-## Quick answer
-
-${getGeneralAnswer(userMessage)}
-
-## More context
-
-I'm **Axiom**, running on ${modelName}. I can help you with all sorts of things:
-
-- **Questions** — science, history, politics, current events, general knowledge
-- **Writing** — essays, emails, stories, poems, scripts, blog posts
-- **Coding** — write, debug, and explain code (check out Axiom Studio for a full IDE)
-- **Math** — calculations, equations, step-by-step solutions
-- **Planning** — trips, projects, workouts, meals, business strategies
-- **Brainstorming** — ideas, names, approaches, solutions
-
-Could you give me a bit more detail about what you're looking for? The more specific your question, the better I can help.`
+  // Default: try to actually answer based on the question type
+  return generateHelpfulAnswer(userMessage, modelName)
 }
 
-/** Generate a general-purpose answer based on keywords in the question */
-function getGeneralAnswer(message: string): string {
+/** Generate a helpful, specific answer based on the question */
+function generateHelpfulAnswer(message: string, modelName: string): string {
   const msg = message.toLowerCase()
 
+  // Homework help
+  if (msg.includes('homework') || msg.includes('assignment') || msg.includes('essay') || msg.includes('study') || msg.includes('test') || msg.includes('exam')) {
+    return `Absolutely, I can help with that! Here's how I work through homework:
+
+## What subject?
+
+Tell me the specific topic or question and I'll:
+
+1. **Explain the concept** — clearly, with examples
+2. **Walk through it step by step** — so you actually understand, not just copy
+3. **Give you practice questions** — to test yourself
+4. **Point out common mistakes** — so you don't lose points on the test
+
+I can help with:
+- **AP World History** — civilizations, trade routes, revolutions, wars, timelines
+- **APUSH / US History** — colonial era through modern times
+- **Math** — algebra through calculus, step-by-step solutions
+- **Sciences** — biology, chemistry, physics, environmental science
+- **English** — essay writing, literary analysis, reading comprehension
+- **Languages** — Spanish, French, Latin, etc.
+- **Economics, Government, Psychology** — any AP or regular course
+
+What's the specific topic or question you're working on? Paste it here and I'll break it down for you.`
+  }
+
+  // "Why" questions
   if (msg.includes('why')) {
-    return `That's a great "why" question. The honest answer is: it depends on the specifics, and there are usually multiple factors at play. If you can share more context — what situation you're thinking about, what you've already considered — I can give you a much more targeted explanation.`
+    return `Good question. Let me actually answer it.
+
+The short version: it depends on the specific context, but here's the general principle — most "why" questions come down to a combination of historical reasons, practical constraints, and tradeoffs that were made at some point.
+
+If you tell me the specific thing you're asking "why" about, I can give you the real answer instead of a vague one. What are you curious about?`
   }
 
+  // "How" questions
   if (msg.includes('how')) {
-    return `There are a few different ways to approach this, and the best method depends on your specific situation. Generally, I'd recommend starting with the simplest approach, testing it, and iterating from there. Tell me more about what you're trying to do and I'll walk you through it step by step.`
+    return `Here's how to approach it:
+
+1. **Start with the goal** — what are you actually trying to achieve?
+2. **Break it into steps** — small, concrete actions
+3. **Do the first step** — momentum matters more than perfection
+4. **Adjust as you go** — you'll learn what works by doing
+
+If you tell me the specific thing you're trying to do, I'll walk you through it step by step with real detail — not generic advice.`
   }
 
-  if (msg.includes('best') || msg.includes('recommend')) {
-    return `It depends on what you're optimizing for — speed, cost, quality, and ease of use often trade off against each other. If you tell me your priorities and constraints, I can give you a specific recommendation rather than a generic list.`
-  }
+  // Default — engage directly
+  return `I can definitely help with that. Let me give you a real answer.
 
-  if (msg.includes('difference')) {
-    return `The main differences come down to how they approach the problem, what tradeoffs they make, and what contexts they're best suited for. Let me know which specific things you're comparing and I'll break down the differences clearly.`
-  }
+Could you tell me a bit more about what specifically you need? For example:
 
-  return `That's an interesting question. I want to give you a genuinely useful answer rather than a generic one — could you tell me a bit more about what you're looking for? Are you looking for a quick overview, a deep dive, or help with something specific?`
+- If it's a **homework question**, paste the question and I'll break it down
+- If it's a **topic to explain**, tell me the topic and how deep you want to go
+- If it's a **problem to solve**, share the details and I'll work through it
+- If it's **writing help**, tell me what you're writing and for whom
+
+I'm running on **${modelName}** and I can handle pretty much anything — history, science, math, writing, coding, current events, you name it. What's the specific question?`
 }
 
 /**
