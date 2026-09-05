@@ -62,11 +62,28 @@ export function ChatApp() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
-  const [gameOpen, setGameOpen] = useState(false)
   const [gameDismissed, setGameDismissed] = useState(false)
+  const [isAtBottom, setIsAtBottom] = useState(true)
+  const [showJumpButton, setShowJumpButton] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll: only scroll to bottom if user is near the bottom
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+    const atBottom = distance < 100
+    setIsAtBottom(atBottom)
+    setShowJumpButton(!atBottom)
+  }, [])
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    setIsAtBottom(true)
+    setShowJumpButton(false)
+  }, [])
 
   const activeThread = threads.find((t) => t.id === activeThreadId)
 
@@ -80,10 +97,12 @@ export function ChatApp() {
     }
   }, [activeThreadId, threads.length])
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom only when user is at the bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [activeThread?.messages])
+    if (isAtBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+  }, [activeThread?.messages, isAtBottom])
 
   const streamResponse = useCallback(
     async (threadId: string, messages: { role: 'user' | 'assistant' | 'system'; content: string }[]) => {
@@ -319,11 +338,11 @@ export function ChatApp() {
           </header>
 
           {/* Messages or empty state */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-thin relative">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-thin relative" onScroll={handleScroll}>
             {!hasMessages ? (
               <EmptyState onPick={handleSend} />
             ) : (
-              <div className="mx-auto max-w-3xl px-4 py-6">
+              <div className="mx-auto max-w-3xl px-6 pb-32">
                 {activeThread!.messages.map((msg, i) => (
                   <MessageRow
                     key={msg.id}
@@ -358,6 +377,17 @@ export function ChatApp() {
               >
                 <MiniGame onClose={() => setGameDismissed(true)} compact />
               </motion.div>
+            )}
+
+            {/* Jump to latest button */}
+            {showJumpButton && (
+              <button
+                onClick={scrollToBottom}
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-[var(--card)] border hairline shadow-lg px-3 py-1.5 text-xs font-medium text-foreground hover:bg-[var(--secondary)] transition-colors z-30"
+              >
+                <ChevronDown className="h-3 w-3" />
+                Jump to latest
+              </button>
             )}
           </div>
 
@@ -456,39 +486,39 @@ function MessageRow({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className={cn('group mb-6', isUser && 'flex justify-end')}
+      transition={{ duration: 0.25 }}
+      className="group py-5"
     >
-      <div className={cn('flex gap-3', isUser && 'flex-row-reverse')}>
+      <div className="flex gap-4">
         {/* Avatar */}
-        <div className="shrink-0">
+        <div className="shrink-0 pt-0.5">
           {isUser ? (
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-xs font-medium">
-              You
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--secondary)] text-[10px] font-medium">
+              {useNav.getState().user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'YO'}
             </div>
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--tangerine)]">
-              <Sparkles className="h-4 w-4 text-white" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--tangerine)]">
+              <Sparkles className="h-3.5 w-3.5 text-white" />
             </div>
           )}
         </div>
 
-        {/* Message content */}
-        <div className={cn('min-w-0 flex-1', isUser && 'max-w-[80%]')}>
+        {/* Message content — flat, full-width, no bubbles */}
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-medium">{isUser ? 'You' : 'Axiom'}</span>
+            <span className="text-[13px] font-semibold text-foreground">{isUser ? 'You' : 'Axiom'}</span>
             {!isUser && msg.model && <ModelBadge modelId={msg.model} size="sm" showName={false} />}
             {msg.toolBadge && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-[var(--secondary)] px-1.5 py-0.5 rounded">
                 <Globe className="h-2.5 w-2.5" /> {msg.toolBadge}
               </span>
             )}
           </div>
 
           {editing ? (
-            <div className="rounded-lg border border-accent/40 bg-card p-3">
+            <div className="rounded-lg border hairline bg-[var(--card)] p-3">
               <textarea
                 autoFocus
                 value={editValue}
@@ -498,13 +528,13 @@ function MessageRow({
               />
               <div className="flex justify-end gap-2 mt-2">
                 <Button size="sm" variant="ghost" onClick={onCancelEdit}>Cancel</Button>
-                <Button size="sm" onClick={onCommitEdit} className="bg-foreground text-background hover:bg-foreground/90">
+                <Button size="sm" onClick={onCommitEdit} className="bg-[var(--tangerine)] text-white hover:bg-[var(--tangerine)]/90">
                   Send
                 </Button>
               </div>
             </div>
           ) : isUser ? (
-            <div className="rounded-2xl rounded-tl-md bg-[var(--secondary)] px-4 py-2.5 text-[0.95rem] leading-relaxed whitespace-pre-wrap">
+            <div className="text-[0.95rem] leading-[1.6] text-foreground whitespace-pre-wrap">
               {msg.content}
             </div>
           ) : (
