@@ -118,12 +118,11 @@ export function ChatApp() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         if (!res.body) throw new Error('No response body')
 
-        updateMessage(threadId, assistantId, { isThinking: false })
-
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
         let acc = ''
+        let thinkingAcc = ''
 
         while (true) {
           const { done, value } = await reader.read()
@@ -136,11 +135,18 @@ export function ChatApp() {
             if (!trimmed.startsWith('data:')) continue
             try {
               const data = JSON.parse(trimmed.slice(5).trim())
-              if (data.type === 'token') {
+              if (data.type === 'thinking_start') {
+                updateMessage(threadId, assistantId, { isThinking: true, thinking: '' })
+              } else if (data.type === 'thinking') {
+                thinkingAcc += data.content
+                updateMessage(threadId, assistantId, { thinking: thinkingAcc })
+              } else if (data.type === 'thinking_end') {
+                updateMessage(threadId, assistantId, { isThinking: false, isThinkingDone: true })
+              } else if (data.type === 'token') {
                 acc += data.content
-                updateMessage(threadId, assistantId, { content: acc, isStreaming: true })
+                updateMessage(threadId, assistantId, { content: acc, isStreaming: true, isThinking: false })
               } else if (data.type === 'done') {
-                updateMessage(threadId, assistantId, { isStreaming: false })
+                updateMessage(threadId, assistantId, { isStreaming: false, isThinking: false })
               } else if (data.type === 'error') {
                 updateMessage(threadId, assistantId, {
                   content: `⚠️ Something went wrong: ${data.content}`,
@@ -498,16 +504,26 @@ function MessageRow({
               </div>
             </div>
           ) : isUser ? (
-            <div className="rounded-2xl rounded-tl-md bg-muted px-4 py-2.5 text-[0.95rem] leading-relaxed whitespace-pre-wrap">
+            <div className="rounded-2xl rounded-tl-md bg-[var(--secondary)] px-4 py-2.5 text-[0.95rem] leading-relaxed whitespace-pre-wrap">
               {msg.content}
             </div>
-          ) : msg.isThinking ? (
-            <ThinkingIndicator />
           ) : (
             <>
-              <Markdown content={msg.content} streaming={msg.isStreaming} />
-              {msg.isStreaming && (
-                <span className="inline-block w-1.5 h-4 bg-accent ml-0.5 animate-pulse rounded-sm align-middle" />
+              {/* Thinking block — collapsible */}
+              {(msg.isThinking || (msg.thinking && msg.isThinkingDone)) && (
+                <ThinkingBlock
+                  thinking={msg.thinking || ''}
+                  isThinking={!!msg.isThinking}
+                  done={!!msg.isThinkingDone}
+                />
+              )}
+              {msg.isThinking && !msg.content ? null : (
+                <>
+                  <Markdown content={msg.content} streaming={msg.isStreaming} />
+                  {msg.isStreaming && (
+                    <span className="inline-block w-1.5 h-4 bg-[var(--tangerine)] ml-0.5 animate-pulse rounded-sm align-middle" />
+                  )}
+                </>
               )}
             </>
           )}
@@ -583,15 +599,48 @@ function ActionButton({
   )
 }
 
-function ThinkingIndicator() {
+function ThinkingBlock({ thinking, isThinking, done }: { thinking: string; isThinking: boolean; done: boolean }) {
+  const [expanded, setExpanded] = useState(isThinking)
+
+  // Auto-expand while thinking, auto-collapse when done
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isThinking) setExpanded(true)
+    else if (done) setExpanded(false)
+  }, [isThinking, done])
+
   return (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground py-1">
-      <div className="flex gap-1">
-        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: '0ms' }} />
-        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: '120ms' }} />
-        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: '240ms' }} />
-      </div>
-      <span className="text-xs">Thinking…</span>
+    <div className="mb-3 rounded-lg border hairline bg-[var(--background-2)] overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:bg-[var(--secondary)]/50 transition-colors"
+      >
+        {isThinking ? (
+          <>
+            <div className="flex gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--tangerine)] animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--tangerine)] animate-bounce" style={{ animationDelay: '120ms' }} />
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--tangerine)] animate-bounce" style={{ animationDelay: '240ms' }} />
+            </div>
+            <span className="font-medium text-[var(--tangerine)]">Thinking…</span>
+          </>
+        ) : (
+          <>
+            <svg className="h-3.5 w-3.5 text-[var(--forest)]" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span className="font-medium">Thought process</span>
+          </>
+        )}
+        <ChevronDown className={cn('ml-auto h-3.5 w-3.5 transition-transform', expanded && 'rotate-180')} />
+      </button>
+      {expanded && thinking && (
+        <div className="px-3 pb-3 pt-1">
+          <div className="text-[13px] text-muted-foreground leading-relaxed font-mono whitespace-pre-wrap border-l-2 border-[var(--rule)] pl-3">
+            {thinking}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

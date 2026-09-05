@@ -33,6 +33,8 @@ export interface ChatMessage {
   attachments?: Attachment[]
   isStreaming?: boolean
   isThinking?: boolean
+  thinking?: string
+  isThinkingDone?: boolean
   toolBadge?: string
   feedback?: 'up' | 'down' | null
 }

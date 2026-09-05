@@ -111,6 +111,63 @@ export async function POST(req: NextRequest) {
           if (aiKey && aiKey.includes('.')) {
             // Zhipu/z.ai API — requires JWT authentication
             const jwt = generateZaiJWT(aiKey)
+
+            // First: send a "thinking" phase so users see the AI reasoning
+            const thinkingMessages = [
+              ...fullMessages,
+              {
+                role: 'assistant' as const,
+                content: 'Let me think about this step by step before answering.',
+              },
+            ]
+
+            const thinkResponse = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwt}`,
+              },
+              body: JSON.stringify({
+                model: process.env.AI_MODEL || 'glm-4.5-flash',
+                messages: [
+                  { role: 'system', content: 'You are thinking through the user\'s question. In 2-4 sentences, show your reasoning: what are you considering, what approach will you take, what key points will you cover? Be concise. This is your internal thinking, not the final answer.' },
+                  { role: 'user', content: messages[messages.length - 1]?.content || '' },
+                ],
+                stream: true,
+                temperature: 0.7,
+                max_tokens: 200,
+              }),
+            })
+
+            if (thinkResponse.ok && thinkResponse.body) {
+              send({ type: 'thinking_start' })
+              const thinkReader = thinkResponse.body.getReader()
+              const thinkDecoder = new TextDecoder()
+              let thinkBuffer = ''
+              while (true) {
+                const { done, value } = await thinkReader.read()
+                if (done) break
+                thinkBuffer += thinkDecoder.decode(value, { stream: true })
+                const thinkLines = thinkBuffer.split('\n')
+                thinkBuffer = thinkLines.pop() || ''
+                for (const line of thinkLines) {
+                  const trimmed = line.trim()
+                  if (!trimmed.startsWith('data:')) continue
+                  const jsonStr = trimmed.slice(5).trim()
+                  if (jsonStr === '[DONE]') continue
+                  try {
+                    const parsed = JSON.parse(jsonStr)
+                    const delta = parsed?.choices?.[0]?.delta?.content
+                    if (delta) {
+                      send({ type: 'thinking', content: delta })
+                    }
+                  } catch {}
+                }
+              }
+              send({ type: 'thinking_end' })
+            }
+
+            // Now: send the actual answer
             const apiResponse = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
               method: 'POST',
               headers: {
@@ -121,6 +178,8 @@ export async function POST(req: NextRequest) {
                 model: process.env.AI_MODEL || 'glm-4.5-flash',
                 messages: fullMessages,
                 stream: true,
+                temperature: 0.8,
+                max_tokens: 2000,
               }),
             })
 
