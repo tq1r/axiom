@@ -61,8 +61,16 @@ export function generatePlan(prompt: string): AgentPlan {
     return generateCalculator(prompt)
   }
 
-  // Default: a generic React app based on the prompt
-  return generateGeneric(prompt)
+  // Games — always generate as HTML so the preview works
+  if (p.includes('minecraft') || p.includes('game') || p.includes('snake') || p.includes('tetris') ||
+      p.includes('pong') || p.includes('breakout') || p.includes('flappy') || p.includes('pacman') ||
+      p.includes('chess') || p.includes('tic tac toe') || p.includes('tictactoe') || p.includes('memory') ||
+      p.includes('platformer') || p.includes('shooter') || p.includes('rpg') || p.includes('puzzle')) {
+    return generateGameHTML(prompt)
+  }
+
+  // Default: generate as single HTML so preview works
+  return generateSingleHTML(prompt)
 }
 
 // ============ SHOP / E-COMMERCE ============
@@ -2052,6 +2060,375 @@ function generateGenericHTML(prompt: string, title: string): string {
     <h1>${title}</h1>
     <p>Built with Axiom Studio. ${prompt}</p>
   </div>
+</body>
+</html>`
+}
+
+// ============ GAME HTML (for games like Minecraft, Snake, etc.) ============
+function generateGameHTML(prompt: string): AgentPlan {
+  const p = prompt.toLowerCase()
+  const isMinecraft = p.includes('minecraft') || p.includes('voxel') || p.includes('block')
+  const gameName = isMinecraft ? 'LiveCraft' :
+    p.includes('snake') ? 'Snake' :
+    p.includes('tetris') ? 'Tetris' :
+    p.includes('pong') ? 'Pong' :
+    p.includes('memory') ? 'Memory Match' :
+    p.includes('tic tac toe') || p.includes('tictactoe') ? 'Tic Tac Toe' :
+    'Game'
+
+  return {
+    steps: [
+      `Generate ${gameName} as a complete HTML game`,
+      'Add canvas-based rendering',
+      'Add game logic and controls',
+      'Style the game UI',
+      'File ready to preview and download',
+    ],
+    files: [
+      {
+        path: 'index.html',
+        language: 'html',
+        description: `Complete ${gameName} game in a single HTML file`,
+        content: isMinecraft ? generateMinecraftHTML(gameName) : generateSimpleGameHTML(gameName, prompt),
+      },
+    ],
+    command: 'open index.html',
+    commandOutput: '✓ Game ready to play in the preview',
+  }
+}
+
+function generateMinecraftHTML(name: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${name} — A Voxel Building Game</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { overflow: hidden; background: #87CEEB; font-family: -apple-system, sans-serif; }
+canvas { display: block; cursor: crosshair; }
+#hud { position: fixed; top: 10px; left: 10px; color: white; text-shadow: 1px 1px 2px black; font-size: 14px; pointer-events: none; }
+#crosshair { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; pointer-events: none; }
+#crosshair::before, #crosshair::after { content: ''; position: absolute; background: white; }
+#crosshair::before { width: 20px; height: 2px; top: 9px; left: 0; }
+#crosshair::after { width: 2px; height: 20px; top: 0; left: 9px; }
+#hotbar { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; }
+.slot { width: 50px; height: 50px; border: 2px solid #555; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; }
+.slot.active { border-color: white; }
+#info { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); color: white; text-shadow: 1px 1px 2px black; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="hud">Position: 0, 0, 0 | Looking: 0°</div>
+<div id="crosshair"></div>
+<div id="info">WASD: move | Space: jump | Mouse: look | Left click: break | Right click: place | 1-5: select block</div>
+<div id="hotbar"></div>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const BLOCKS = { AIR:0, GRASS:1, DIRT:2, STONE:3, WOOD:4, LEAVES:5, SAND:6, WATER:7, BRICK:8 };
+const COLORS = { 0:null, 1:'#4a7c34', 2:'#8b5a2b', 3:'#888888', 4:'#6b4226', 5:'#3a6b1f', 6:'#e6d88f', 7:'#3b6ee6', 8:'#a0421f' };
+const NAMES = ['Air','Grass','Dirt','Stone','Wood','Leaves','Sand','Water','Brick'];
+
+const WORLD_SIZE = 16;
+const WORLD_HEIGHT = 8;
+let world = {};
+
+function setBlock(x,y,z,t) { if(x<0||x>=WORLD_SIZE||y<0||y>=WORLD_HEIGHT||z<0||z>=WORLD_SIZE) return; world[x+','+y+','+z]=t; }
+function getBlock(x,y,z) { return world[x+','+y+','+z]||0; }
+
+// Generate terrain
+for(let x=0;x<WORLD_SIZE;x++) for(let z=0;z<WORLD_SIZE;z++) {
+  const h = 3 + Math.floor(Math.sin(x*0.3)*Math.cos(z*0.3)*2);
+  for(let y=0;y<h;y++) setBlock(x,y,z, y===h-1?BLOCKS.GRASS: y>h-3?BLOCKS.DIRT:BLOCKS.STONE);
+  // Trees
+  if(Math.random()<0.05) {
+    for(let y=h;y<h+4;y++) setBlock(x,y,z,BLOCKS.WOOD);
+    for(let dx=-2;dx<=2;dx++) for(let dz=-2;dz<=2;dz++) for(let dy=0;dy<2;dy++)
+      if(Math.abs(dx)+Math.abs(dz)<3) setBlock(x+dx,h+3+dy,z+dz,BLOCKS.LEAVES);
+  }
+}
+
+// Player
+const player = { x:8, y:8, z:8, vx:0, vy:0, vz:0, yaw:0, pitch:0, onGround:false };
+let selectedSlot = 1;
+const slots = [BLOCKS.GRASS, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.BRICK];
+
+// Hotbar
+const hotbar = document.getElementById('hotbar');
+slots.forEach((b,i) => {
+  const s = document.createElement('div');
+  s.className = 'slot' + (i===0?' active':'');
+  s.textContent = NAMES[b];
+  s.onclick = () => { document.querySelectorAll('.slot')[selectedSlot-1]?.classList.remove('active'); s.classList.add('active'); selectedSlot = i+1; };
+  hotbar.appendChild(s);
+});
+
+// Controls
+let keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if(e.key>='1'&&e.key<='5') {
+    document.querySelectorAll('.slot')[selectedSlot-1]?.classList.remove('active');
+    selectedSlot = parseInt(e.key);
+    document.querySelectorAll('.slot')[selectedSlot-1]?.classList.add('active');
+  }
+});
+document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+canvas.addEventListener('click', () => canvas.requestPointerLock());
+document.addEventListener('mousemove', e => {
+  if(document.pointerLockElement === canvas) {
+    player.yaw += e.movementX * 0.003;
+    player.pitch = Math.max(-1.5, Math.min(1.5, player.pitch - e.movementY * 0.003));
+  }
+});
+
+canvas.addEventListener('mousedown', e => {
+  if(document.pointerLockElement !== canvas) return;
+  const hit = raycast();
+  if(hit) {
+    if(e.button === 0) { setBlock(hit.x, hit.y, hit.z, 0); } // Break
+    if(e.button === 2) { // Place
+      const nx = hit.x + hit.nx, ny = hit.y + hit.ny, nz = hit.z + hit.nz;
+      setBlock(nx, ny, nz, slots[selectedSlot-1]);
+    }
+  }
+});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+function raycast() {
+  const dx = Math.sin(player.yaw)*Math.cos(player.pitch);
+  const dy = -Math.sin(player.pitch);
+  const dz = -Math.cos(player.yaw)*Math.cos(player.pitch);
+  for(let t=0; t<5; t+=0.05) {
+    const x = Math.floor(player.x + dx*t);
+    const y = Math.floor(player.y - 1 + dy*t);
+    const z = Math.floor(player.z + dz*t);
+    if(getBlock(x,y,z)) {
+      const bx = Math.floor(player.x + dx*(t-0.05));
+      const by = Math.floor(player.y - 1 + dy*(t-0.05));
+      const bz = Math.floor(player.z + dz*(t-0.05));
+      return { x, y, z, nx: bx-x, ny: by-y, nz: bz-z };
+    }
+  }
+  return null;
+}
+
+function update() {
+  const speed = 0.15;
+  const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
+  if(keys['w']) { player.x += sin*speed; player.z -= cos*speed; }
+  if(keys['s']) { player.x -= sin*speed; player.z += cos*speed; }
+  if(keys['a']) { player.x -= cos*speed; player.z -= sin*speed; }
+  if(keys['d']) { player.x += cos*speed; player.z += sin*speed; }
+  if(keys[' '] && player.onGround) { player.vy = 0.3; player.onGround = false; }
+
+  player.vy -= 0.02;
+  player.y += player.vy;
+
+  // Collision
+  const fx = Math.floor(player.x), fy = Math.floor(player.y-1), fz = Math.floor(player.z);
+  if(getBlock(fx, fy, fz)) { player.y = fy + 2; player.vy = 0; player.onGround = true; }
+  else player.onGround = false;
+
+  player.x = Math.max(0.5, Math.min(WORLD_SIZE-0.5, player.x));
+  player.z = Math.max(0.5, Math.min(WORLD_SIZE-0.5, player.z));
+
+  document.getElementById('hud').textContent = 
+    'Position: ' + Math.floor(player.x) + ', ' + Math.floor(player.y) + ', ' + Math.floor(player.z) +
+    ' | Looking: ' + Math.floor(player.yaw*180/Math.PI) + '°';
+}
+
+function render() {
+  ctx.fillStyle = '#87CEEB';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Collect visible blocks
+  const blocks = [];
+  for(const key in world) {
+    const [x,y,z] = key.split(',').map(Number);
+    if(y > player.y + 10 || y < player.y - 10) continue;
+    // Check if exposed
+    if(!getBlock(x+1,y,z) || !getBlock(x-1,y,z) || !getBlock(x,y+1,z) || !getBlock(x,y-1,z) || !getBlock(x,y,z+1) || !getBlock(x,y,z-1)) {
+      blocks.push({ x, y, z, t: world[key] });
+    }
+  }
+
+  // Sort by distance
+  blocks.sort((a,b) => {
+    const da = (a.x-player.x)**2 + (a.y-player.y)**2 + (a.z-player.z)**2;
+    const db = (b.x-player.x)**2 + (b.y-player.y)**2 + (b.z-player.z)**2;
+    return db - da;
+  });
+
+  // Project 3D to 2D
+  const fov = 600;
+  const cx = canvas.width/2, cy = canvas.height/2;
+  const cosP = Math.cos(player.pitch), sinP = Math.sin(player.pitch);
+  const cosY = Math.cos(player.yaw), sinY = Math.sin(player.yaw);
+
+  for(const b of blocks) {
+    // Relative position
+    let rx = b.x - player.x + 0.5;
+    let ry = b.y - player.y + 0.5;
+    let rz = b.z - player.z + 0.5;
+
+    // Rotate by yaw
+    let tx = rx * cosY - rz * sinY;
+    let tz = rx * sinY + rz * cosY;
+    rx = tx; rz = tz;
+
+    // Rotate by pitch
+    let ty = ry * cosP - rz * sinP;
+    tz = ry * sinP + rz * cosP;
+    ry = ty; rz = tz;
+
+    if(tz <= 0.1) continue; // Behind camera
+
+    const scale = fov / tz;
+    const sx = cx + rx * scale;
+    const sy = cy - ry * scale;
+    const s = scale * 0.5;
+
+    if(s < 1) continue;
+
+    // Draw block as a cube
+    ctx.fillStyle = COLORS[b.t];
+    ctx.fillRect(sx - s/2, sy - s/2, s, s);
+
+    // Top face (lighter)
+    ctx.fillStyle = lightenColor(COLORS[b.t], 20);
+    ctx.beginPath();
+    ctx.moveTo(sx - s/2, sy - s/2);
+    ctx.lineTo(sx + s/2, sy - s/2);
+    ctx.lineTo(sx + s/2 + s*0.2, sy - s/2 - s*0.2);
+    ctx.lineTo(sx - s/2 + s*0.2, sy - s/2 - s*0.2);
+    ctx.fill();
+
+    // Right face (darker)
+    ctx.fillStyle = lightenColor(COLORS[b.t], -20);
+    ctx.beginPath();
+    ctx.moveTo(sx + s/2, sy - s/2);
+    ctx.lineTo(sx + s/2 + s*0.2, sy - s/2 - s*0.2);
+    ctx.lineTo(sx + s/2 + s*0.2, sy + s/2 - s*0.2);
+    ctx.lineTo(sx + s/2, sy + s/2);
+    ctx.fill();
+
+    // Outline
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.strokeRect(sx - s/2, sy - s/2, s, s);
+  }
+
+  // Crosshair
+  ctx.fillStyle = 'white';
+  ctx.fillRect(cx-10, cy-1, 20, 2);
+  ctx.fillRect(cx-1, cy-10, 2, 20);
+}
+
+function lightenColor(hex, percent) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return 'rgb(' + Math.min(255, r+percent) + ',' + Math.min(255, g+percent) + ',' + Math.min(255, b+percent) + ')';
+}
+
+function loop() {
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+loop();
+</script>
+</body>
+</html>`
+}
+
+function generateSimpleGameHTML(name: string, prompt: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${name}</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a1a; color: white; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+canvas { border: 2px solid #444; border-radius: 8px; background: #0d0d0d; }
+h1 { margin-bottom: 16px; font-size: 1.5rem; }
+#score { font-size: 1.2rem; margin-bottom: 8px; color: #4ade80; }
+</style>
+</head>
+<body>
+<h1>${name}</h1>
+<div id="score">Score: 0</div>
+<canvas id="game" width="400" height="400"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+let score = 0;
+let gameOver = false;
+
+// Simple snake game as fallback
+const grid = 20;
+let snake = [{x:10, y:10}];
+let food = {x:5, y:5};
+let dx = 1, dy = 0;
+
+document.addEventListener('keydown', e => {
+  if(e.key === 'ArrowUp' && dy === 0) { dx = 0; dy = -1; }
+  if(e.key === 'ArrowDown' && dy === 0) { dx = 0; dy = 1; }
+  if(e.key === 'ArrowLeft' && dx === 0) { dx = -1; dy = 0; }
+  if(e.key === 'ArrowRight' && dx === 0) { dx = 1; dy = 0; }
+  if(e.key === ' ' && gameOver) { snake = [{x:10,y:10}]; score = 0; dx = 1; dy = 0; gameOver = false; }
+});
+
+function update() {
+  if(gameOver) return;
+  const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+  if(head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20 || snake.some(s => s.x === head.x && s.y === head.y)) {
+    gameOver = true;
+    return;
+  }
+  snake.unshift(head);
+  if(head.x === food.x && head.y === food.y) {
+    score += 10;
+    scoreEl.textContent = 'Score: ' + score;
+    food = { x: Math.floor(Math.random()*20), y: Math.floor(Math.random()*20) };
+  } else {
+    snake.pop();
+  }
+}
+
+function render() {
+  ctx.fillStyle = '#0d0d0d';
+  ctx.fillRect(0, 0, 400, 400);
+  ctx.fillStyle = '#4ade80';
+  snake.forEach(s => ctx.fillRect(s.x * grid, s.y * grid, grid-1, grid-1));
+  ctx.fillStyle = '#ef4444';
+  ctx.fillRect(food.x * grid, food.y * grid, grid-1, grid-1);
+  if(gameOver) {
+    ctx.fillStyle = 'white';
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Game Over! Press Space', 200, 200);
+  }
+}
+
+function loop() {
+  update();
+  render();
+  setTimeout(() => requestAnimationFrame(loop), 100);
+}
+loop();
+</script>
 </body>
 </html>`
 }
