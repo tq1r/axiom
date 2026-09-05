@@ -120,9 +120,48 @@ export async function POST(req: NextRequest) {
           if (aiKey && aiKey.includes('.')) {
             // Zhipu/z.ai API — requires JWT authentication
             const jwt = generateZaiJWT(aiKey)
+            const model = process.env.AI_MODEL || 'glm-4.5-flash'
+            const lastUserMsg = messages[messages.length - 1]?.content || ''
 
-            // SINGLE API call — no separate thinking phase
-            // The "thinking" indicator is shown client-side while waiting for first token
+            // WEB SEARCH: For factual questions, search first and feed results to the AI
+            const shouldSearch = shouldSearchWeb(lastUserMsg)
+            let searchContext = ''
+            if (shouldSearch) {
+              try {
+                const searchRes = await fetch('https://open.bigmodel.cn/api/paas/v4/tools', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${jwt}`,
+                  },
+                  body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'user', content: lastUserMsg }],
+                    stream: false,
+                    tools: [{ type: 'web_search', web_search: { enable: true, search_result: true } }],
+                  }),
+                })
+                if (searchRes.ok) {
+                  const searchData = await searchRes.json()
+                  const searchResults = searchData?.choices?.[0]?.message?.content || ''
+                  if (searchResults) {
+                    searchContext = `\n\nWeb search results:\n${searchResults}\n\nUse these results to answer the user's question with current, accurate information.`
+                  }
+                }
+              } catch {
+                // Search failed — continue without it
+              }
+            }
+
+            // Build messages with search context if available
+            const messagesToSend = searchContext
+              ? [
+                  ...fullMessages.slice(0, -1),
+                  { role: 'user' as const, content: lastUserMsg + searchContext },
+                ]
+              : fullMessages
+
+            // SINGLE API call with full context
             const apiResponse = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
               method: 'POST',
               headers: {
@@ -130,8 +169,8 @@ export async function POST(req: NextRequest) {
                 'Authorization': `Bearer ${jwt}`,
               },
               body: JSON.stringify({
-                model: process.env.AI_MODEL || 'glm-4.5-flash',
-                messages: fullMessages,
+                model: model,
+                messages: messagesToSend,
                 stream: true,
                 temperature: 0.9,
                 max_tokens: 4096,
@@ -922,18 +961,36 @@ I'm running on **${modelName}** and I can handle pretty much anything — histor
  */
 function shouldSearchWeb(message: string): boolean {
   const msg = message.toLowerCase()
-  // Don't search for code/math
-  if (msg.includes('```') || msg.includes('function ') || msg.includes('const ')) return false
-  if (/\d\s*[+\-*/]\s*\d/.test(msg)) return false
+  // Don't search for pure code/math
+  if (msg.includes('```') || /^[\d\s+\-*/.()]+$/.test(msg)) return false
 
-  // Search for current events, news, "latest", "recent", "today"
-  if (msg.includes('news') || msg.includes('latest') || msg.includes('recent') || msg.includes('today') || msg.includes('current')) return true
+  // Search for ANYTHING factual — be aggressive about this
+  // The AI's training data is outdated, so web search ensures accuracy
+  const searchTriggers = [
+    'latest', 'recent', 'current', 'today', 'news', 'version', 'update',
+    'who is', 'what is', 'when is', 'where is', 'how old', 'how much',
+    'what happened', 'what\'s new', 'right now', '2024', '2025', '2026',
+    'president', 'ceo', 'price', 'release', 'announced', 'launched',
+    'score', 'result', 'winner', 'champion', 'ranked', 'tier',
+    'minecraft', 'fortnite', 'roblox', 'valorant', 'discord',
+    'stock', 'weather', 'temperature', 'forecast',
+    'best', 'top', 'recommend', 'review', 'vs', 'versus', 'compare',
+    'how do', 'why is', 'why does', 'why are', 'is it', 'are they',
+    'can you', 'does it', 'do they', 'should i',
+    'you know', 'tell me about', 'explain',
+  ]
 
-  // Search for "who is", "what is", "when is", "where is" type questions
-  if (msg.startsWith('who is') || msg.startsWith('what is') || msg.startsWith('when is') || msg.startsWith('where is') || msg.startsWith('how old')) return true
+  // If the message contains any trigger, search
+  if (searchTriggers.some(t => msg.includes(t))) return true
 
-  // Search for people, places, events
-  if (msg.includes('president') || msg.includes('ceo') || msg.includes('happened') || msg.includes('happening')) return true
+  // If the message is a question (contains ?), search
+  if (msg.includes('?')) return true
+
+  // If the message mentions a specific game, product, or technology, search
+  const productTriggers = ['iphone', 'samsung', 'tesla', 'nvidia', 'amd', 'intel',
+    'playstation', 'xbox', 'nintendo', 'steam', 'github', 'openai', 'google',
+    'apple', 'microsoft', 'amazon', 'netflix', 'spotify', 'youtube']
+  if (productTriggers.some(t => msg.includes(t))) return true
 
   return false
 }

@@ -214,16 +214,24 @@ export function StudioApp() {
 
     setAgentRunning(true)
 
-    // Check if this is a greeting or short conversational message, not a build request
+    // SIMPLER LOGIC: Only build if the prompt clearly asks to build/create/make something.
+    // Everything else (questions, greetings, statements, opinions) = chat response.
     const lowerPrompt = prompt.toLowerCase()
-    const isGreeting = /^(hi|hey|hello|yo|sup|howdy|hey there|what's up|whats up|good morning|good afternoon|good evening)\b/i.test(lowerPrompt.trim())
-    const isShortQuestion = prompt.length < 30 && (lowerPrompt.includes('?') || lowerPrompt.startsWith('what') || lowerPrompt.startsWith('how') || lowerPrompt.startsWith('why'))
-    const looksLikeBuildRequest = lowerPrompt.includes('build') || lowerPrompt.includes('create') || lowerPrompt.includes('make a') || lowerPrompt.includes('add a') || lowerPrompt.includes('component') || lowerPrompt.includes('function') || lowerPrompt.includes('page') || lowerPrompt.includes('app') || lowerPrompt.includes('feature') || lowerPrompt.includes('fix') || lowerPrompt.includes('implement')
-    // Detect non-build requests: questions, commands, conversations
-    const isNonBuildRequest = lowerPrompt.includes('clear') || lowerPrompt.includes('delete') || lowerPrompt.includes('remove') || lowerPrompt.includes('reset') || lowerPrompt.includes('question') || lowerPrompt.startsWith('what') || lowerPrompt.startsWith('how') || lowerPrompt.startsWith('why') || lowerPrompt.startsWith('can you') || lowerPrompt.startsWith('could you') || lowerPrompt.includes('?')
 
-    // If it's a greeting, short question, or non-build request — respond like a chat
-    if ((isGreeting || isShortQuestion || (isNonBuildRequest && !looksLikeBuildRequest))) {
+    // Must contain an explicit build verb to trigger the build flow
+    const hasBuildVerb = /\b(build|create|make|generate|scaffold|code|program|develop|implement|write me a|write a function|write a component|add a feature|fix this code|refactor)\b/.test(lowerPrompt)
+    // And must also mention something code-related, OR be long enough to be a real request
+    const isBuildRequest = hasBuildVerb && (
+      lowerPrompt.includes('app') || lowerPrompt.includes('website') || lowerPrompt.includes('component') ||
+      lowerPrompt.includes('page') || lowerPrompt.includes('shop') || lowerPrompt.includes('game') ||
+      lowerPrompt.includes('todo') || lowerPrompt.includes('dashboard') || lowerPrompt.includes('landing') ||
+      lowerPrompt.includes('api') || lowerPrompt.includes('function') || lowerPrompt.includes('button') ||
+      lowerPrompt.includes('form') || lowerPrompt.includes('calculator') || lowerPrompt.includes('blog') ||
+      lowerPrompt.includes('project') || lowerPrompt.includes('html')
+    )
+
+    // Everything that's NOT a build request = chat like a normal assistant
+    if (!isBuildRequest) {
       const chatStepId = 's_' + uid()
       addAgentStep({
         id: chatStepId,
