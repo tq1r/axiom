@@ -291,15 +291,13 @@ export function ChatComposer({ onSend, onStop, isStreaming, disabled, placeholde
 
               {/* Send / Stop */}
               {isStreaming ? (
-                <Button
-                  size="sm"
-                  variant="outline"
+                <button
                   onClick={onStop}
-                  className="h-8 px-3 gap-1.5"
+                  className="flex items-center gap-1.5 h-8 px-4 rounded-full bg-[var(--foreground)] text-[var(--background)] text-xs font-medium hover:opacity-90 transition-opacity"
                 >
                   <Square className="h-3 w-3 fill-current" />
                   Stop
-                </Button>
+                </button>
               ) : (
                 <Button
                   size="sm"
