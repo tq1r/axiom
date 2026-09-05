@@ -339,7 +339,7 @@ interface StudioState {
   setActiveFileByPath: (projectId: string, path: string) => string | null
   setAgentRunning: (v: boolean) => void
   addAgentStep: (step: AgentStep) => void
-  updateAgentStep: (id: string, updates: Partial<AgentStep>) => void
+  updateAgentStep: (id: string, updates: Partial<AgentStep> | ((prev: AgentStep) => Partial<AgentStep>)) => void
   clearAgentSteps: () => void
 }
 
@@ -388,9 +388,11 @@ export const useStudio = create<StudioState>()(
         set((s) => ({ agentSteps: [...s.agentSteps, step] })),
       updateAgentStep: (id, updates) =>
         set((s) => ({
-          agentSteps: s.agentSteps.map((st) =>
-            st.id === id ? { ...st, ...updates } : st
-          ),
+          agentSteps: s.agentSteps.map((st) => {
+            if (st.id !== id) return st
+            const resolved = typeof updates === 'function' ? (updates as (prev: AgentStep) => Partial<AgentStep>)(st) : updates
+            return { ...st, ...resolved }
+          }),
         })),
       clearAgentSteps: () => set({ agentSteps: [] }),
     }),

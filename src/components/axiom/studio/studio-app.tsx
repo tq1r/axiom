@@ -32,6 +32,7 @@ import { FileExplorer } from './file-explorer'
 import { CodeEditor } from './code-editor'
 import { TerminalPanel } from './terminal-panel'
 import { InlineEditDialog } from './inline-edit-dialog'
+import { MiniGame } from '../chat/mini-game'
 import { ModelBadge } from '../shared/model-badge'
 import { useNav, useStudio } from '@/lib/axiom/store'
 import { uid } from '@/lib/axiom/sample-data'
@@ -267,150 +268,131 @@ export function StudioApp() {
       return
     }
 
-    // === Step 1: Ask AI for a plan ===
+    // === BUILD FLOW: narrative updates + todo list ===
+
+    // 1. Planning — ask AI what to build and create a todo list
     const planStepId = 's_' + uid()
     addAgentStep({
       id: planStepId,
       type: 'plan',
-      title: 'Planning',
+      title: 'Axiom',
       status: 'running',
       timestamp: Date.now(),
     })
 
     const aiPlan = await callAI(
-      'You are a senior software architect. The user wants to build a web app. Break it into 5-7 concrete steps. Return ONLY the steps, one per line, numbered like "1. Create the types file". No intro, no outro.',
+      'You are a senior software architect. The user wants to build something. In 1-2 sentences, describe what you\'ll build. Then list 4-6 tasks as a numbered list. Format:\n\nDescription of what you\'ll build.\n\n1. Task one\n2. Task two\n3. Task three\n\nBe concise.',
       `Build: ${prompt}`
     )
 
     const planText = aiPlan.trim() || generatePlan(prompt).steps.map((s, i) => `${i + 1}. ${s}`).join('\n')
 
+    // Parse the plan into description + todos
+    const planLines = planText.split('\n').filter((l) => l.trim())
+    const descLines = planLines.filter((l) => !/^\d+\./.test(l.trim()))
+    const todoLines = planLines.filter((l) => /^\d+\./.test(l.trim())).map((l) => l.replace(/^\d+\.\s*/, '').trim())
+
+    const description = descLines.join(' ') || `I'll build: ${prompt}`
+    const todos = todoLines.length >= 3 ? todoLines : generatePlan(prompt).steps.slice(0, 5)
+
     updateAgentStep(planStepId, {
-      title: 'Plan',
+      title: 'Axiom',
       status: 'done',
-      detail: `I'll build: ${prompt}\n\n${planText}`,
+      detail: description,
+      todos: todos.map((t) => ({ text: t, done: false })),
     })
 
-    // === Step 2: Get file structure from AI OR use local generator ===
-    const filesStepId = 's_' + uid()
-    addAgentStep({
-      id: filesStepId,
-      type: 'thought',
-      title: 'Deciding file structure',
-      status: 'running',
-      timestamp: Date.now(),
-    })
+    // 2. Get file structure (use local generator for reliability)
+    const localPlan = generatePlan(prompt)
+    const filesToCreate = localPlan.files
 
-    // Try to get file structure from AI
-    const fileStructure = await callAI(
-      'You are a software architect. List the files needed for this project. Return ONLY file paths, one per line, starting with src/. Example:\nsrc/App.tsx\nsrc/components/Header.tsx\nsrc/types.ts\n\nNo descriptions, no numbering, no explanation. Just the file paths.',
-      `Project: ${prompt}\n\nList 4-6 files:`
-    )
-
-    // STRICT parsing — only accept lines that look like real file paths
-    // Must: start with a letter, contain a dot with a valid extension, no spaces in the path
-    const validExtensions = ['tsx', 'ts', 'jsx', 'js', 'css', 'html', 'json', 'md', 'py', 'go', 'rs', 'java', 'vue', 'svelte']
-    const fileList = fileStructure.split('\n')
-      .map((l) => l.trim().replace(/^["']|["']$/g, '').replace(/^\d+\.\s*/, '').replace(/^-\s*/, ''))
-      .filter((l) => {
-        if (!l || l.length > 100) return false
-        // Must not contain spaces (file paths don't have spaces)
-        if (/\s/.test(l)) return false
-        // Must contain a dot
-        if (!l.includes('.')) return false
-        // Must end with a valid extension
-        const ext = l.split('.').pop()?.toLowerCase()
-        return ext ? validExtensions.includes(ext) : false
-      })
-      .slice(0, 6)
-
-    // If AI didn't return valid files, use local generator (which has REAL complete code)
-    let filesToCreate: { path: string; description: string }[]
-    if (fileList.length >= 3) {
-      filesToCreate = fileList.map((p) => ({ path: p, description: '' }))
-    } else {
-      // Use the local code generator — it has real, complete, tested code files
-      const localPlan = generatePlan(prompt)
-      filesToCreate = localPlan.files.map((f) => ({ path: f.path, description: f.description }))
-    }
-
-    updateAgentStep(filesStepId, { status: 'done', detail: `Creating ${filesToCreate.length} files` })
-
-    // === Step 3: Generate each file ===
+    // 3. Generate each file — show narrative updates, not code dumps
     let filesCreated = 0
     for (let i = 0; i < filesToCreate.length; i++) {
-      const { path: cleanPath, description } = filesToCreate[i]
+      const file = filesToCreate[i]
       const stepId = 's_' + uid()
+
+      // Narrative message: "Creating the product card component..."
+      const fileDesc = file.description || file.path.split('/').pop() || 'file'
       addAgentStep({
         id: stepId,
         type: 'file',
-        title: `Create ${cleanPath.split('/').pop()}`,
+        title: fileDesc,
         status: 'running',
         timestamp: Date.now(),
-        fileName: cleanPath,
+        fileName: file.path,
+        detail: `Writing ${file.path}...`,
       })
 
-      // Determine language from file extension
-      const ext = cleanPath.split('.').pop()?.toLowerCase() || 'tsx'
+      // Try AI for file content
+      const ext = file.path.split('.').pop()?.toLowerCase() || 'tsx'
       const langMap: Record<string, string> = {
         ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
         css: 'css', json: 'json', html: 'html', md: 'markdown',
         py: 'python', go: 'go', rs: 'rust', java: 'java',
       }
-      const lang = langMap[ext] || 'text'
+      const lang = file.language || langMap[ext] || 'text'
 
-      // Try AI first
-      const fileContent = await callAI(
-        `You are an expert ${lang} developer. Generate complete, production-ready code for this file. The code must be FULL and WORKING — no placeholders, no TODOs, no "// rest of code". Write the entire file from start to finish. Return ONLY the raw code — no markdown fences, no explanation, no comments about what you're doing. Just the code.`,
-        `Project: ${prompt}\nFile: ${cleanPath}\n${description ? `Purpose: ${description}` : ''}\n\nWrite the complete ${cleanPath} file:`
+      const aiContent = await callAI(
+        `You are an expert ${lang} developer. Generate complete, production-ready code. No placeholders, no TODOs. Return ONLY raw code, no markdown fences, no explanation.`,
+        `Project: ${prompt}\nFile: ${file.path}\nPurpose: ${fileDesc}\n\nWrite the complete file:`
       )
 
-      let finalContent = fileContent.trim()
-
-      // Strip markdown fences if present
+      let finalContent = aiContent.trim()
       if (finalContent.startsWith('```')) {
         finalContent = finalContent.replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim()
       }
 
-      // VALIDATION: reject fallback/garbage responses
+      // Validate — if AI gave garbage, use local generator
       const isGarbage = !finalContent ||
         finalContent.length < 20 ||
         finalContent.includes('I can definitely help') ||
         finalContent.includes("What's on your mind") ||
-        finalContent.includes('Could you tell me') ||
-        finalContent.includes('Here is my take') ||
-        finalContent.includes('I can help with pretty much anything')
+        finalContent.includes('Could you tell me')
 
       if (isGarbage) {
-        // Use local generator — it has REAL complete code
-        const localPlan = generatePlan(prompt)
-        const localFile = localPlan.files.find((f) => f.path === cleanPath) ||
-                         localPlan.files[Math.min(i, localPlan.files.length - 1)]
-        finalContent = localFile?.content || ''
+        finalContent = file.content
       }
 
-      // Skip if we still have no content
       if (!finalContent || finalContent.length < 10) {
-        updateAgentStep(stepId, { status: 'error', detail: 'Failed to generate content' })
+        updateAgentStep(stepId, { status: 'error', detail: `Could not generate ${file.path}` })
         continue
       }
 
-      // Add the file to the project
+      // Add file to project
       addFileToProject(projectId, {
-        path: cleanPath,
+        path: file.path,
         language: lang,
         content: finalContent,
-        description: description || cleanPath,
+        description: fileDesc,
       })
 
       filesCreated++
 
-      // Show a preview of the generated code as the diff
-      const preview = finalContent.split('\n').slice(0, 25).map((l) => '+ ' + l).join('\n')
+      // Mark todo as done
+      const todoIndex = Math.min(i, todos.length - 1)
+      updateAgentStep(planStepId, (prev: AgentStep) => ({
+        todos: prev.todos?.map((t, idx) => idx === todoIndex ? { ...t, done: true } : t),
+      }))
+
+      // Narrative done message: "Created src/components/ProductCard.tsx — 42 lines"
+      const lineCount = finalContent.split('\n').length
       updateAgentStep(stepId, {
         status: 'done',
-        diff: preview + (finalContent.split('\n').length > 25 ? '\n… (truncated)' : ''),
+        detail: `✓ Created ${file.path} — ${lineCount} lines`,
       })
     }
+
+    // 4. Done message
+    addAgentStep({
+      id: 's_' + uid(),
+      type: 'complete',
+      title: 'Done',
+      detail: `Built ${filesCreated} files. Check the file explorer to see them all. The app is ready to preview.`,
+      status: 'done',
+      timestamp: Date.now(),
+      todos: todos.map((t) => ({ text: t, done: true })),
+    })
 
     // === Step 4: Run command ===
     addAgentStep({
@@ -665,13 +647,20 @@ function AgentChat({
   projectName: string
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [gameDismissed, setGameDismissed] = useState(false)
+
+  // Reset game dismiss when agent starts
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (running) setGameDismissed(false)
+  }, [running])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [steps])
 
   return (
-    <div className="h-full flex flex-col bg-[var(--background-2)]">
+    <div className="h-full flex flex-col bg-[var(--background-2)] relative">
       {/* Header */}
       <div className="flex items-center justify-between h-9 px-3 border-b hairline shrink-0">
         <div className="flex items-center gap-2">
@@ -723,6 +712,20 @@ function AgentChat({
           </div>
         )}
       </div>
+
+      {/* Mini-game widget — appears when agent is working */}
+      {running && !gameDismissed && (
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.95 }}
+          transition={{ duration: 0.3, delay: 1 }}
+          className="absolute bottom-32 right-4 z-40 shadow-xl"
+          style={{ width: 260 }}
+        >
+          <MiniGame onClose={() => setGameDismissed(true)} compact />
+        </motion.div>
+      )}
 
       {/* Input */}
       <div className="p-2 border-t hairline shrink-0">
@@ -794,10 +797,35 @@ function AgentStepCard({ step, index }: { step: AgentStep; index: number }) {
         )}
       </button>
 
-      {expanded && (step.detail || step.diff || step.output || step.command) && (
+      {expanded && (step.detail || step.diff || step.output || step.command || step.todos) && (
         <div className="px-2.5 pb-2.5 pt-0 space-y-2">
           {step.detail && (
-            <p className="text-[11px] text-muted-foreground leading-relaxed pl-7 whitespace-pre-wrap">{step.detail}</p>
+            <p className="text-[11px] text-foreground/80 leading-relaxed pl-7 whitespace-pre-wrap">{step.detail}</p>
+          )}
+          {step.todos && step.todos.length > 0 && (
+            <div className="ml-7 rounded-lg border hairline bg-[var(--background-2)] p-2.5">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono mb-1.5 flex items-center gap-1.5">
+                <Check className="h-2.5 w-2.5" />
+                Todos
+                <span className="bg-[var(--secondary)] px-1.5 rounded-full">{step.todos.filter(t => t.done).length}/{step.todos.length}</span>
+              </div>
+              <div className="space-y-1">
+                {step.todos.map((todo, i) => (
+                  <div key={i} className="flex items-center gap-2 text-[11px]">
+                    <div className={cn(
+                      'h-3.5 w-3.5 rounded-full border flex items-center justify-center shrink-0 transition-all',
+                      todo.done ? 'bg-[var(--forest)] border-[var(--forest)]' : 'border-[var(--rule)]'
+                    )}>
+                      {todo.done && <Check className="h-2 w-2 text-white" />}
+                    </div>
+                    <span className={cn(
+                      'transition-all',
+                      todo.done ? 'text-muted-foreground line-through' : 'text-foreground/80'
+                    )}>{todo.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
           {step.diff && (
             <div className="rounded border hairline bg-[var(--background-2)] overflow-hidden ml-7">

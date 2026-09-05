@@ -91,6 +91,7 @@ export interface AgentStep {
   diff?: string
   command?: string
   output?: string
+  todos?: { text: string; done: boolean }[]
 }
 
 export interface Checkpoint {
