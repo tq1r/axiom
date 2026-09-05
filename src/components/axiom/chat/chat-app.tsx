@@ -496,7 +496,7 @@ function MessageRow({
         <div className="shrink-0 pt-0.5">
           {isUser ? (
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--secondary)] text-[10px] font-medium">
-              {useNav.getState().user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'YO'}
+              {useUser.getState().user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'YO'}
             </div>
           ) : (
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--tangerine)]">
