@@ -26,6 +26,7 @@ import { ChatComposer } from './chat-composer'
 import { Markdown } from './markdown'
 import { MiniGame } from './mini-game'
 import { ModelBadge } from '../shared/model-badge'
+import { TextShimmer, FollowUpSuggestions } from '../shared/opencode-patterns'
 import { useNav, useChat, useUser } from '@/lib/axiom/store'
 import { uid } from '@/lib/axiom/sample-data'
 import type { ChatMessage } from '@/lib/axiom/types'
@@ -536,15 +537,10 @@ function MessageRow({
             </div>
           ) : (
             <>
-              {/* Thinking indicator — shown while waiting for first token */}
+              {/* Thinking indicator — OpenCode TextShimmer pattern */}
               {msg.isThinking && (
-                <div className="flex items-center gap-2 py-2">
-                  <div className="flex gap-1">
-                    <span className="h-2 w-2 rounded-full bg-[var(--tangerine)] animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="h-2 w-2 rounded-full bg-[var(--tangerine)] animate-bounce" style={{ animationDelay: '120ms' }} />
-                    <span className="h-2 w-2 rounded-full bg-[var(--tangerine)] animate-bounce" style={{ animationDelay: '240ms' }} />
-                  </div>
-                  <span className="text-sm text-muted-foreground">Thinking…</span>
+                <div className="py-2">
+                  <TextShimmer text="Thinking" className="text-sm font-medium" />
                 </div>
               )}
               {(!msg.isThinking || msg.content) && (
@@ -552,6 +548,13 @@ function MessageRow({
                   <Markdown content={msg.content} streaming={msg.isStreaming} />
                   {msg.isStreaming && (
                     <span className="inline-block w-1.5 h-4 bg-[var(--tangerine)] ml-0.5 animate-pulse rounded-sm align-middle" />
+                  )}
+                  {/* Follow-up suggestions on last assistant message */}
+                  {!msg.isStreaming && isLast && msg.content.length > 50 && (
+                    <FollowUpSuggestions
+                      suggestions={generateFollowUps(msg.content)}
+                      onPick={(s) => { handleSend(s) }}
+                    />
                   )}
                 </>
               )}
@@ -627,4 +630,33 @@ function ActionButton({
       {children}
     </button>
   )
+}
+
+/** Generate follow-up suggestions based on the AI response content */
+function generateFollowUps(content: string): string[] {
+  const lower = content.toLowerCase()
+  const suggestions: string[] = []
+
+  if (lower.includes('code') || lower.includes('function') || lower.includes('```')) {
+    suggestions.push('Explain this code', 'Add error handling', 'Write a test for this')
+  }
+  if (lower.includes('history') || lower.includes('war') || lower.includes('ancient')) {
+    suggestions.push('Tell me more about this', 'What happened next?')
+  }
+  if (lower.includes('math') || lower.includes('equation') || lower.includes('calculate')) {
+    suggestions.push('Show another example', 'Explain the steps')
+  }
+  if (lower.includes('python') || lower.includes('javascript') || lower.includes('react')) {
+    suggestions.push('Convert to another language', 'How do I run this?')
+  }
+  if (lower.includes('essay') || lower.includes('email') || lower.includes('write')) {
+    suggestions.push('Make it shorter', 'Make it more formal', 'Add more detail')
+  }
+
+  // Default suggestions
+  if (suggestions.length === 0) {
+    suggestions.push('Tell me more', 'Give me an example', 'Can you simplify that?')
+  }
+
+  return suggestions.slice(0, 3)
 }
