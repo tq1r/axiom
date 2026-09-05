@@ -114,6 +114,97 @@ export async function POST(req: NextRequest) {
         }
 
         try {
+          // === OpenCode Zen API (OpenAI-compatible, has free models) ===
+          // Get a key at https://opencode.ai/auth
+          // Set OPENCODE_API_KEY env var (starts with sk-)
+          // Free models: deepseek-v4-flash-free, nemotron-3-ultra-free, etc.
+          const opencodeKey = process.env.OPENCODE_API_KEY
+
+          if (opencodeKey && opencodeKey.startsWith('sk-')) {
+            const ocModel = process.env.AI_MODEL || 'deepseek-v4-flash'
+            const lastUserMsg = messages[messages.length - 1]?.content || ''
+
+            // Web search for factual questions
+            const shouldSearch = shouldSearchWeb(lastUserMsg)
+            let searchContext = ''
+            if (shouldSearch) {
+              try {
+                const searchRes = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${opencodeKey}`,
+                  },
+                  body: JSON.stringify({
+                    model: ocModel,
+                    messages: [
+                      { role: 'system', content: 'Search the web and return ONLY the key facts that answer the user question. Be concise.' },
+                      { role: 'user', content: lastUserMsg },
+                    ],
+                    stream: false,
+                    max_tokens: 500,
+                  }),
+                })
+                if (searchRes.ok) {
+                  const searchData = await searchRes.json()
+                  const searchResults = searchData?.choices?.[0]?.message?.content || ''
+                  if (searchResults) {
+                    searchContext = `\n\nWeb search results:\n${searchResults}\n\nUse these results to answer with current, accurate information.`
+                  }
+                }
+              } catch {}
+            }
+
+            const messagesToSend = searchContext
+              ? [...fullMessages.slice(0, -1), { role: 'user' as const, content: lastUserMsg + searchContext }]
+              : fullMessages
+
+            const apiResponse = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${opencodeKey}`,
+              },
+              body: JSON.stringify({
+                model: ocModel,
+                messages: messagesToSend,
+                stream: true,
+                temperature: 0.9,
+                max_tokens: 4096,
+                top_p: 0.9,
+              }),
+            })
+
+            if (apiResponse.ok && apiResponse.body) {
+              const reader = apiResponse.body.getReader()
+              const decoder = new TextDecoder()
+              let buffer = ''
+              while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                buffer += decoder.decode(value, { stream: true })
+                const lines = buffer.split('\n')
+                buffer = lines.pop() || ''
+                for (const line of lines) {
+                  const trimmed = line.trim()
+                  if (!trimmed.startsWith('data:')) continue
+                  const jsonStr = trimmed.slice(5).trim()
+                  if (jsonStr === '[DONE]') continue
+                  try {
+                    const parsed = JSON.parse(jsonStr)
+                    const delta = parsed?.choices?.[0]?.delta?.content
+                    if (delta) {
+                      send({ type: 'token', content: delta })
+                    }
+                  } catch {}
+                }
+              }
+              send({ type: 'done' })
+              controller.close()
+              return
+            }
+          }
+
           // === Zhipu/z.ai API (free with glm-4.5-flash) ===
           const aiKey = process.env.AI_API_KEY
 

@@ -656,6 +656,7 @@ function AgentChat({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [gameDismissed, setGameDismissed] = useState(false)
+  const [mode, setMode] = useState<'build' | 'plan'>('build')
 
   // Reset game dismiss when agent starts
   useEffect(() => {
@@ -678,9 +679,32 @@ function AgentChat({
           <span className="text-xs font-medium">Agent</span>
           <ModelBadge modelId="axiom-coder" size="sm" showName={false} />
         </div>
-        {steps.length > 0 && !running && (
-          <button onClick={onClear} className="text-[10px] text-muted-foreground hover:text-foreground">Clear</button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Plan / Build mode toggle (like OpenCode's Tab key) */}
+          <div className="flex rounded-md border hairline overflow-hidden">
+            <button
+              onClick={() => setMode('build')}
+              className={cn(
+                'px-2 py-0.5 text-[10px] font-medium transition-colors',
+                mode === 'build' ? 'bg-[var(--tangerine)] text-white' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Build
+            </button>
+            <button
+              onClick={() => setMode('plan')}
+              className={cn(
+                'px-2 py-0.5 text-[10px] font-medium transition-colors',
+                mode === 'plan' ? 'bg-[var(--tangerine)] text-white' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Plan
+            </button>
+          </div>
+          {steps.length > 0 && !running && (
+            <button onClick={onClear} className="text-[10px] text-muted-foreground hover:text-foreground">Clear</button>
+          )}
+        </div>
       </div>
 
       {/* Messages / steps */}
@@ -742,13 +766,15 @@ function AgentChat({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() } }}
-            placeholder="Describe what to build…"
+            placeholder={mode === 'plan' ? 'Describe what to plan… (Plan mode = no changes made)' : 'Describe what to build…  Use @file to reference files'}
             rows={2}
             className="w-full resize-none bg-transparent px-3 pt-2.5 pb-8 text-sm placeholder:text-muted-foreground focus:outline-none"
             style={{ minHeight: '56px', maxHeight: '120px' }}
           />
           <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">Agent · Axiom Coder</span>
+            <span className="text-[10px] text-muted-foreground">
+              {mode === 'plan' ? '📋 Plan mode · No changes' : '🔨 Build mode · Axiom Coder'}
+            </span>
             <Button
               size="sm"
               onClick={onSend}
