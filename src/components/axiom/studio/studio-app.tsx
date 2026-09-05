@@ -290,7 +290,7 @@ export function StudioApp() {
       detail: `I'll build: ${prompt}\n\n${planText}`,
     })
 
-    // === Step 2: Ask AI what files to create ===
+    // === Step 2: Get file structure from AI OR use local generator ===
     const filesStepId = 's_' + uid()
     addAgentStep({
       id: filesStepId,
@@ -300,32 +300,45 @@ export function StudioApp() {
       timestamp: Date.now(),
     })
 
+    // Try to get file structure from AI
     const fileStructure = await callAI(
-      'You are a software architect. List the files needed for this project, one per line, in format "path/to/file.tsx — short description". Return ONLY the file list. No explanation.',
-      `Project: ${prompt}\n\nList 3-6 files:`
+      'You are a software architect. List the files needed for this project. Return ONLY file paths, one per line, starting with src/. Example:\nsrc/App.tsx\nsrc/components/Header.tsx\nsrc/types.ts\n\nNo descriptions, no numbering, no explanation. Just the file paths.',
+      `Project: ${prompt}\n\nList 4-6 files:`
     )
 
+    // STRICT parsing — only accept lines that look like real file paths
+    // Must: start with a letter, contain a dot with a valid extension, no spaces in the path
+    const validExtensions = ['tsx', 'ts', 'jsx', 'js', 'css', 'html', 'json', 'md', 'py', 'go', 'rs', 'java', 'vue', 'svelte']
     const fileList = fileStructure.split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l && (l.includes('/') || l.includes('.ts') || l.includes('.tsx') || l.includes('.js') || l.includes('.jsx') || l.includes('.css') || l.includes('.json')))
+      .map((l) => l.trim().replace(/^["']|["']$/g, '').replace(/^\d+\.\s*/, '').replace(/^-\s*/, ''))
+      .filter((l) => {
+        if (!l || l.length > 100) return false
+        // Must not contain spaces (file paths don't have spaces)
+        if (/\s/.test(l)) return false
+        // Must contain a dot
+        if (!l.includes('.')) return false
+        // Must end with a valid extension
+        const ext = l.split('.').pop()?.toLowerCase()
+        return ext ? validExtensions.includes(ext) : false
+      })
       .slice(0, 6)
 
-    // If AI didn't return files, use local fallback
-    if (fileList.length === 0) {
+    // If AI didn't return valid files, use local generator (which has REAL complete code)
+    let filesToCreate: { path: string; description: string }[]
+    if (fileList.length >= 3) {
+      filesToCreate = fileList.map((p) => ({ path: p, description: '' }))
+    } else {
+      // Use the local code generator — it has real, complete, tested code files
       const localPlan = generatePlan(prompt)
-      localPlan.files.forEach((f) => fileList.push(`${f.path} — ${f.description}`))
+      filesToCreate = localPlan.files.map((f) => ({ path: f.path, description: f.description }))
     }
 
-    updateAgentStep(filesStepId, { status: 'done' })
+    updateAgentStep(filesStepId, { status: 'done', detail: `Creating ${filesToCreate.length} files` })
 
-    // === Step 3: Generate each file using real AI ===
+    // === Step 3: Generate each file ===
     let filesCreated = 0
-    for (let i = 0; i < fileList.length; i++) {
-      const fileLine = fileList[i]
-      const [filePath, ...descParts] = fileLine.split('—')
-      const cleanPath = filePath.trim().replace(/^["']|["']$/g, '')
-      const description = descParts.join('—').trim()
-
+    for (let i = 0; i < filesToCreate.length; i++) {
+      const { path: cleanPath, description } = filesToCreate[i]
       const stepId = 's_' + uid()
       addAgentStep({
         id: stepId,
@@ -345,23 +358,40 @@ export function StudioApp() {
       }
       const lang = langMap[ext] || 'text'
 
-      // Ask the AI to generate the actual file content
+      // Try AI first
       const fileContent = await callAI(
-        `You are an expert ${lang} developer. Generate complete, production-ready code. Return ONLY the code — no markdown fences, no explanation, just raw code.`,
-        `Build a file for this project: ${prompt}\n\nFile: ${cleanPath}\n${description ? `Purpose: ${description}` : ''}\n\nGenerate the complete file content:`
+        `You are an expert ${lang} developer. Generate complete, production-ready code for this file. The code must be FULL and WORKING — no placeholders, no TODOs, no "// rest of code". Write the entire file from start to finish. Return ONLY the raw code — no markdown fences, no explanation, no comments about what you're doing. Just the code.`,
+        `Project: ${prompt}\nFile: ${cleanPath}\n${description ? `Purpose: ${description}` : ''}\n\nWrite the complete ${cleanPath} file:`
       )
 
       let finalContent = fileContent.trim()
-      if (!finalContent) {
-        // Fallback to local generator if AI failed
-        const localPlan = generatePlan(prompt)
-        const localFile = localPlan.files[Math.min(i, localPlan.files.length - 1)]
-        finalContent = localFile?.content || `// ${cleanPath}\n// TODO: implement\n`
+
+      // Strip markdown fences if present
+      if (finalContent.startsWith('```')) {
+        finalContent = finalContent.replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim()
       }
 
-      // Strip markdown fences if the AI included them
-      if (finalContent.startsWith('```')) {
-        finalContent = finalContent.replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '')
+      // VALIDATION: reject fallback/garbage responses
+      const isGarbage = !finalContent ||
+        finalContent.length < 20 ||
+        finalContent.includes('I can definitely help') ||
+        finalContent.includes("What's on your mind") ||
+        finalContent.includes('Could you tell me') ||
+        finalContent.includes('Here is my take') ||
+        finalContent.includes('I can help with pretty much anything')
+
+      if (isGarbage) {
+        // Use local generator — it has REAL complete code
+        const localPlan = generatePlan(prompt)
+        const localFile = localPlan.files.find((f) => f.path === cleanPath) ||
+                         localPlan.files[Math.min(i, localPlan.files.length - 1)]
+        finalContent = localFile?.content || ''
+      }
+
+      // Skip if we still have no content
+      if (!finalContent || finalContent.length < 10) {
+        updateAgentStep(stepId, { status: 'error', detail: 'Failed to generate content' })
+        continue
       }
 
       // Add the file to the project
@@ -375,10 +405,10 @@ export function StudioApp() {
       filesCreated++
 
       // Show a preview of the generated code as the diff
-      const preview = finalContent.split('\n').slice(0, 20).map((l) => '+ ' + l).join('\n')
+      const preview = finalContent.split('\n').slice(0, 25).map((l) => '+ ' + l).join('\n')
       updateAgentStep(stepId, {
         status: 'done',
-        diff: preview + (finalContent.split('\n').length > 20 ? '\n… (truncated)' : ''),
+        diff: preview + (finalContent.split('\n').length > 25 ? '\n… (truncated)' : ''),
       })
     }
 

@@ -21,8 +21,13 @@ export interface AgentPlan {
 export function generatePlan(prompt: string): AgentPlan {
   const p = prompt.toLowerCase()
 
+  // Single HTML file request (for Netlify deployment)
+  if (p.includes('html') && (p.includes('netlify') || p.includes('single file') || p.includes('post it'))) {
+    return generateSingleHTML(prompt)
+  }
+
   // E-commerce / shop
-  if (p.includes('shop') || p.includes('store') || p.includes('ecommerce') || p.includes('e-commerce') || p.includes('product') && p.includes('cart')) {
+  if (p.includes('shop') || p.includes('store') || p.includes('ecommerce') || p.includes('e-commerce') || (p.includes('product') && p.includes('cart'))) {
     return generateShop(prompt)
   }
 
@@ -32,7 +37,7 @@ export function generatePlan(prompt: string): AgentPlan {
   }
 
   // Todo app
-  if (p.includes('todo') || p.includes('task') && p.includes('list')) {
+  if (p.includes('todo') || (p.includes('task') && p.includes('list'))) {
     return generateTodo(prompt)
   }
 
@@ -1771,4 +1776,282 @@ function toPascalCase(s: string): string {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join('')
     .slice(0, 40)
+}
+
+// ============ SINGLE HTML FILE (for Netlify) ============
+function generateSingleHTML(prompt: string): AgentPlan {
+  const isShop = prompt.toLowerCase().includes('shop') || prompt.toLowerCase().includes('store') || prompt.toLowerCase().includes('cart')
+  const title = isShop ? 'Premium Shop' : 'Axiom App'
+
+  return {
+    steps: [
+      'Generate a complete, self-contained HTML file',
+      'Add styled CSS for a professional look',
+      'Add working JavaScript for interactivity',
+      'File ready to upload to Netlify',
+    ],
+    files: [
+      {
+        path: 'index.html',
+        language: 'html',
+        description: 'Complete self-contained HTML file with CSS and JS',
+        content: isShop ? generateShopHTML(prompt) : generateGenericHTML(prompt, title),
+      },
+    ],
+    command: 'open index.html',
+    commandOutput: '✓ File ready to deploy\n  Upload to Netlify or any static host',
+  }
+}
+
+function generateShopHTML(prompt: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Luxe Boutique — Premium Fashion Store</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #faf9f7; color: #1a1a1a; }
+    header { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 100; }
+    .header-inner { max-width: 1200px; margin: 0 auto; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+    .logo span { color: #DC4A1E; }
+    nav { display: flex; gap: 2rem; }
+    nav a { text-decoration: none; color: #555; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
+    nav a:hover { color: #DC4A1E; }
+    .cart-btn { position: relative; background: none; border: none; cursor: pointer; font-size: 1.3rem; }
+    .cart-count { position: absolute; top: -8px; right: -8px; background: #DC4A1E; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; }
+    .hero { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #fff; padding: 4rem 2rem; text-align: center; }
+    .hero h1 { font-size: 2.8rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
+    .hero p { font-size: 1.1rem; opacity: 0.7; max-width: 600px; margin: 0 auto; }
+    .filters { max-width: 1200px; margin: 2rem auto; padding: 0 2rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+    .filter-btn { padding: 0.5rem 1.2rem; border: 1px solid #ddd; border-radius: 999px; background: #fff; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
+    .filter-btn:hover, .filter-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+    .products { max-width: 1200px; margin: 0 auto; padding: 0 2rem 3rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; }
+    .product-card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: transform 0.2s, box-shadow 0.2s; }
+    .product-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.12); }
+    .product-img { width: 100%; height: 280px; object-fit: cover; background: #f0f0f0; }
+    .product-info { padding: 1.2rem; }
+    .product-name { font-size: 1rem; font-weight: 600; margin-bottom: 0.3rem; }
+    .product-desc { font-size: 0.85rem; color: #888; margin-bottom: 0.8rem; line-height: 1.4; }
+    .product-bottom { display: flex; justify-content: space-between; align-items: center; }
+    .product-price { font-size: 1.2rem; font-weight: 700; }
+    .add-btn { background: #1a1a1a; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: background 0.2s; }
+    .add-btn:hover { background: #DC4A1E; }
+    .cart-drawer { position: fixed; top: 0; right: -400px; width: 380px; height: 100vh; background: #fff; box-shadow: -5px 0 30px rgba(0,0,0,0.15); transition: right 0.3s ease; z-index: 200; display: flex; flex-direction: column; }
+    .cart-drawer.open { right: 0; }
+    .cart-header { padding: 1.5rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .cart-header h2 { font-size: 1.2rem; }
+    .close-cart { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999; }
+    .cart-items { flex: 1; overflow-y: auto; padding: 1rem; }
+    .cart-item { display: flex; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #f0f0f0; }
+    .cart-item img { width: 70px; height: 70px; border-radius: 8px; object-fit: cover; }
+    .cart-item-info { flex: 1; }
+    .cart-item-name { font-size: 0.9rem; font-weight: 500; margin-bottom: 0.3rem; }
+    .cart-item-price { font-size: 0.85rem; color: #888; }
+    .qty-controls { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+    .qty-btn { width: 24px; height: 24px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .qty-num { font-size: 0.85rem; font-weight: 600; min-width: 20px; text-align: center; }
+    .remove-btn { color: #DC4A1E; background: none; border: none; cursor: pointer; font-size: 0.8rem; margin-left: auto; }
+    .cart-footer { padding: 1.5rem; border-top: 1px solid #eee; }
+    .cart-total { display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; }
+    .checkout-btn { width: 100%; padding: 1rem; background: #DC4A1E; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600; transition: background 0.2s; }
+    .checkout-btn:hover { background: #B91C1C; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 150; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .overlay.show { opacity: 1; pointer-events: all; }
+    .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #fff; padding: 0.8rem 1.5rem; border-radius: 8px; font-size: 0.9rem; z-index: 300; opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+    footer { text-align: center; padding: 2rem; color: #888; font-size: 0.85rem; }
+    @media (max-width: 768px) { .hero h1 { font-size: 2rem; } nav { display: none; } .cart-drawer { width: 100%; right: -100%; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="logo">Luxe<span>.</span></div>
+      <nav>
+        <a href="#">Shop</a>
+        <a href="#">About</a>
+        <a href="#">Contact</a>
+      </nav>
+      <button class="cart-btn" onclick="toggleCart()">
+        🛒 <span class="cart-count" id="cartCount">0</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <h1>Premium Fashion, Delivered.</h1>
+    <p>Curated pieces for the modern wardrobe. Free shipping on orders over $100.</p>
+  </section>
+
+  <div class="filters">
+    <button class="filter-btn active" onclick="filterProducts('all', this)">All</button>
+    <button class="filter-btn" onclick="filterProducts('tops', this)">Tops</button>
+    <button class="filter-btn" onclick="filterProducts('bottoms', this)">Bottoms</button>
+    <button class="filter-btn" onclick="filterProducts('accessories', this)">Accessories</button>
+  </div>
+
+  <div class="products" id="productGrid"></div>
+
+  <div class="overlay" id="overlay" onclick="toggleCart()"></div>
+  <div class="cart-drawer" id="cartDrawer">
+    <div class="cart-header">
+      <h2>Your Cart</h2>
+      <button class="close-cart" onclick="toggleCart()">×</button>
+    </div>
+    <div class="cart-items" id="cartItems"></div>
+    <div class="cart-footer">
+      <div class="cart-total">
+        <span>Total</span>
+        <span id="cartTotal">$0.00</span>
+      </div>
+      <button class="checkout-btn" onclick="checkout()">Checkout</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <footer>
+    <p>© 2026 Luxe Boutique. Built with Axiom Studio.</p>
+  </footer>
+
+  <script>
+    const products = [
+      { id: 1, name: "Wool Blend Overcoat", desc: "Tailored fit, Italian wool", price: 289, category: "tops", img: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400" },
+      { id: 2, name: "Silk Button-Up Shirt", desc: "100% mulberry silk", price: 129, category: "tops", img: "https://images.unsplash.com/photo-1602810318383-e386cc2a3cc6?w=400" },
+      { id: 3, name: "Slim Fit Chinos", desc: "Stretch cotton, 4 colors", price: 89, category: "bottoms", img: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=400" },
+      { id: 4, name: "Leather Belt", desc: "Full-grain Italian leather", price: 65, category: "accessories", img: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400" },
+      { id: 5, name: "Cashmere Sweater", desc: "Mongolian cashmere", price: 195, category: "tops", img: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400" },
+      { id: 6, name: "Pleated Trousers", desc: "High-waist, wool blend", price: 145, category: "bottoms", img: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=400" },
+      { id: 7, name: "Aviator Sunglasses", desc: "UV400, titanium frame", price: 175, category: "accessories", img: "https://images.unsplash.com/photo-1572631381918-0598a58d5766?w=400" },
+      { id: 8, name: "Linen Blazer", desc: "Breathable summer linen", price: 225, category: "tops", img: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400" },
+    ];
+
+    let cart = [];
+    let currentFilter = 'all';
+
+    function renderProducts() {
+      const grid = document.getElementById('productGrid');
+      const filtered = currentFilter === 'all' ? products : products.filter(p => p.category === currentFilter);
+      grid.innerHTML = filtered.map(p => \`
+        <div class="product-card">
+          <img class="product-img" src="\${p.img}" alt="\${p.name}" loading="lazy">
+          <div class="product-info">
+            <div class="product-name">\${p.name}</div>
+            <div class="product-desc">\${p.desc}</div>
+            <div class="product-bottom">
+              <div class="product-price">$\${p.price}</div>
+              <button class="add-btn" onclick="addToCart(\${p.id})">Add to Cart</button>
+            </div>
+          </div>
+        </div>
+      \`).join('');
+    }
+
+    function filterProducts(cat, btn) {
+      currentFilter = cat;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderProducts();
+    }
+
+    function addToCart(id) {
+      const product = products.find(p => p.id === id);
+      const existing = cart.find(item => item.id === id);
+      if (existing) {
+        existing.qty++;
+      } else {
+        cart.push({ ...product, qty: 1 });
+      }
+      updateCart();
+      showToast(\`\${product.name} added to cart\`);
+    }
+
+    function removeFromCart(id) {
+      cart = cart.filter(item => item.id !== id);
+      updateCart();
+    }
+
+    function changeQty(id, delta) {
+      const item = cart.find(i => i.id === id);
+      if (item) {
+        item.qty += delta;
+        if (item.qty <= 0) removeFromCart(id);
+        else updateCart();
+      }
+    }
+
+    function updateCart() {
+      const count = cart.reduce((s, i) => s + i.qty, 0);
+      const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+      document.getElementById('cartCount').textContent = count;
+      document.getElementById('cartTotal').textContent = '$' + total.toFixed(2);
+      document.getElementById('cartItems').innerHTML = cart.map(item => \`
+        <div class="cart-item">
+          <img src="\${item.img}" alt="\${item.name}">
+          <div class="cart-item-info">
+            <div class="cart-item-name">\${item.name}</div>
+            <div class="cart-item-price">$\${item.price}</div>
+            <div class="qty-controls">
+              <button class="qty-btn" onclick="changeQty(\${item.id}, -1)">−</button>
+              <span class="qty-num">\${item.qty}</span>
+              <button class="qty-btn" onclick="changeQty(\${item.id}, 1)">+</button>
+              <button class="remove-btn" onclick="removeFromCart(\${item.id})">Remove</button>
+            </div>
+          </div>
+        </div>
+      \`).join('');
+    }
+
+    function toggleCart() {
+      document.getElementById('cartDrawer').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('show');
+    }
+
+    function checkout() {
+      if (cart.length === 0) { showToast('Your cart is empty'); return; }
+      const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+      showToast(\`Order placed! Total: $\${total.toFixed(2)}\`);
+      cart = [];
+      updateCart();
+      setTimeout(toggleCart, 1500);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    renderProducts();
+  </script>
+</body>
+</html>`
+}
+
+function generateGenericHTML(prompt: string, title: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #faf9f7; color: #1a1a1a; }
+    .container { max-width: 800px; margin: 0 auto; padding: 4rem 2rem; }
+    h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+    p { font-size: 1.1rem; line-height: 1.6; color: #555; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>${title}</h1>
+    <p>Built with Axiom Studio. ${prompt}</p>
+  </div>
+</body>
+</html>`
 }
