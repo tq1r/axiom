@@ -215,100 +215,146 @@ export function StudioApp() {
     }
   }
 
-  // Agent chat send
+  // Agent chat send — can do EVERYTHING: build, answer questions, explain code,
+  // write files, clear project, edit existing files, search the web
   const handleAgentSend = async () => {
     const projectId = activeProject?.id
     if (!chatInput.trim() || agentRunning || !projectId) return
     const prompt = chatInput.trim()
     setChatInput('')
 
-    // Add user message to chat
     setChatMessages((prev) => [...prev, { role: 'user', content: prompt }])
-
     setAgentRunning(true)
 
-    // Check if it's a build request
     const lowerPrompt = prompt.toLowerCase()
-    const hasBuildVerb = /\b(build|create|make|generate|scaffold|code|program|develop|implement|write me a|write a function|write a component|add a feature|fix this code|refactor)\b/.test(lowerPrompt)
+
+    // === COMMAND: Clear project ===
+    if (lowerPrompt.includes('clear') && (lowerPrompt.includes('project') || lowerPrompt.includes('files') || lowerPrompt.includes('code'))) {
+      useStudio.setState((s) => ({
+        projects: s.projects.map((p) => p.id === projectId ? { ...p, files: [], updatedAt: Date.now() } : p),
+      }))
+      setActiveFile(null)
+      setOpenTabs([])
+      setPreviewHtml('')
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: "Done — cleared all project files. The explorer and preview are now empty." }])
+      setAgentRunning(false)
+      return
+    }
+
+    // === COMMAND: Explain code ===
+    if (lowerPrompt.includes('explain') && (lowerPrompt.includes('code') || lowerPrompt.includes('file') || lowerPrompt.includes('this'))) {
+      const fileContent = activeFile?.content || ''
+      if (fileContent) {
+        const response = await callAI(
+          'You are an expert developer. Explain the code clearly and concisely. What does it do, how does it work, and are there any issues?',
+          `Explain this code from ${activeFile?.path}:\n\n${fileContent.slice(0, 3000)}`
+        )
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: response || 'I could not analyze the code.' }])
+      } else {
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: 'No file is currently open. Select a file first, then ask me to explain it.' }])
+      }
+      setAgentRunning(false)
+      return
+    }
+
+    // === COMMAND: Fix/improve code ===
+    if ((lowerPrompt.includes('fix') || lowerPrompt.includes('improve') || lowerPrompt.includes('refactor') || lowerPrompt.includes('optimize')) && activeFile) {
+      const fileContent = activeFile.content
+      const response = await callAI(
+        'You are an expert developer. Fix, improve, or refactor the given code. Return ONLY the complete fixed code — no explanation, no markdown fences.',
+        `Fix/improve this code from ${activeFile.path}:\n\n${fileContent}\n\nUser request: ${prompt}\n\nReturn the complete fixed file:`
+      )
+      let fixed = response.trim().replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim()
+      if (fixed && fixed.length > 20 && !fixed.includes('I can definitely help')) {
+        updateFile(projectId, activeFile.id, fixed)
+        if (activeFile.language === 'html') { setPreviewHtml(fixed); setRightView('preview') }
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: `✓ Fixed ${activeFile.path} — ${fixed.split('\n').length} lines. Check the preview for changes.` }])
+      } else {
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: 'I tried to fix it but could not generate valid code. Try being more specific about what to fix.' }])
+      }
+      setAgentRunning(false)
+      return
+    }
+
+    // === BUILD REQUEST: Create files ===
+    const hasBuildVerb = /\b(build|create|make|generate|scaffold|code|program|develop|implement|write me a|write a function|write a component|add a feature)\b/.test(lowerPrompt)
     const isBuildRequest = hasBuildVerb && (
       lowerPrompt.includes('app') || lowerPrompt.includes('website') || lowerPrompt.includes('component') ||
       lowerPrompt.includes('page') || lowerPrompt.includes('shop') || lowerPrompt.includes('game') ||
       lowerPrompt.includes('todo') || lowerPrompt.includes('dashboard') || lowerPrompt.includes('landing') ||
       lowerPrompt.includes('api') || lowerPrompt.includes('function') || lowerPrompt.includes('button') ||
       lowerPrompt.includes('form') || lowerPrompt.includes('calculator') || lowerPrompt.includes('blog') ||
-      lowerPrompt.includes('project') || lowerPrompt.includes('html')
+      lowerPrompt.includes('project') || lowerPrompt.includes('html') || lowerPrompt.includes('minecraft') ||
+      lowerPrompt.includes('snake') || lowerPrompt.includes('tetris') || lowerPrompt.includes('pong') ||
+      lowerPrompt.includes('craft') || lowerPrompt.includes('puzzle') || lowerPrompt.includes('platformer')
     )
 
-    if (!isBuildRequest) {
-      // Chat response
-      const response = await callAI(
-        'You are Axiom, an AI coding assistant inside an IDE. Be friendly, concise, and helpful. Answer questions directly.',
-        prompt
-      )
-      const aiResponse = response.trim() || "Hey! I'm the Axiom agent. Tell me what you want to build and I'll create it for you."
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: aiResponse }])
+    if (isBuildRequest) {
+      const localPlan = generatePlan(prompt)
+      const filesToCreate = localPlan.files
+      let buildLog = `I'll build: ${prompt}\n\n`
+      let filesCreated = 0
+
+      for (let i = 0; i < filesToCreate.length; i++) {
+        const file = filesToCreate[i]
+        const fileDesc = file.description || file.path.split('/').pop() || 'file'
+        const ext = file.path.split('.').pop()?.toLowerCase() || 'tsx'
+        const langMap: Record<string, string> = {
+          ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
+          css: 'css', json: 'json', html: 'html', md: 'markdown',
+          py: 'python', go: 'go', rs: 'rust', java: 'java',
+        }
+        const lang = file.language || langMap[ext] || 'text'
+        let finalContent = file.content
+
+        if (lang !== 'html' && finalContent.length < 100) {
+          const aiContent = await callAI(
+            `You are an expert ${lang} developer. Generate complete, production-ready code. Return ONLY raw code.`,
+            `Project: ${prompt}\nFile: ${file.path}\nPurpose: ${fileDesc}\n\nWrite the complete file:`
+          )
+          const cleaned = aiContent.trim().replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim()
+          if (cleaned && cleaned.length > 50 && !cleaned.includes('I can definitely help')) {
+            finalContent = cleaned
+          }
+        }
+
+        if (finalContent && finalContent.length >= 10) {
+          addFileToProject(projectId, { path: file.path, language: lang, content: finalContent, description: fileDesc })
+          filesCreated++
+          buildLog += `✓ Created ${file.path} — ${finalContent.split('\n').length} lines\n`
+          if (lang === 'html') { setPreviewHtml(finalContent); setRightView('preview') }
+        }
+      }
+
+      buildLog += `\nDone! ${filesCreated} file${filesCreated !== 1 ? 's' : ''} created. Check the preview on the right →`
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: buildLog }])
       setAgentRunning(false)
+      toast.success('Build complete', { description: `${filesCreated} file${filesCreated !== 1 ? 's' : ''} created` })
       return
     }
 
-    // Build flow — use local generator FIRST (it has complete working code)
-    // then optionally enhance with AI. The local generator ALWAYS produces
-    // working HTML that renders in the preview.
-    const localPlan = generatePlan(prompt)
-    const filesToCreate = localPlan.files
-    let buildLog = `I'll build: ${prompt}\n\n`
-    let filesCreated = 0
-
-    for (let i = 0; i < filesToCreate.length; i++) {
-      const file = filesToCreate[i]
-      const fileDesc = file.description || file.path.split('/').pop() || 'file'
-      const ext = file.path.split('.').pop()?.toLowerCase() || 'tsx'
-      const langMap: Record<string, string> = {
-        ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
-        css: 'css', json: 'json', html: 'html', md: 'markdown',
-        py: 'python', go: 'go', rs: 'rust', java: 'java',
-      }
-      const lang = file.language || langMap[ext] || 'text'
-
-      // USE LOCAL CONTENT DIRECTLY — it's already complete, tested, working code
-      // The local generator has real games, real shops, real apps
-      let finalContent = file.content
-
-      // Only try AI enhancement for non-HTML files (HTML is already complete locally)
-      if (lang !== 'html' && finalContent.length < 100) {
-        const aiContent = await callAI(
-          `You are an expert ${lang} developer. Generate complete, production-ready code. No placeholders. Return ONLY raw code.`,
-          `Project: ${prompt}\nFile: ${file.path}\nPurpose: ${fileDesc}\n\nWrite the complete file:`
-        )
-        const cleaned = aiContent.trim().replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim()
-        if (cleaned && cleaned.length > 50 && !cleaned.includes('I can definitely help')) {
-          finalContent = cleaned
-        }
-      }
-
-      if (finalContent && finalContent.length >= 10) {
-        addFileToProject(projectId, {
-          path: file.path,
-          language: lang,
-          content: finalContent,
-          description: fileDesc,
-        })
-        filesCreated++
-        buildLog += `✓ Created ${file.path} — ${finalContent.split('\n').length} lines\n`
-
-        // If HTML, update preview immediately
-        if (lang === 'html') {
-          setPreviewHtml(finalContent)
-          setRightView('preview')
-        }
-      }
+    // === DEFAULT: General AI assistant (can answer anything) ===
+    // Include the current file as context so the AI knows what you're working on
+    let contextNote = ''
+    if (activeFile) {
+      contextNote = `\n\n[Context: The user has ${activeFile.path} open in the editor. It's a ${activeFile.language} file with ${activeFile.content.split('\n').length} lines.]`
     }
 
-    buildLog += `\nDone! ${filesCreated} file${filesCreated !== 1 ? 's' : ''} created. Check the preview on the right →`
+    const response = await callAI(
+      `You are Axiom, an AI coding assistant inside an IDE called Axiom Studio. You can:
+- Answer any question about programming, math, science, history, or anything else
+- Explain code that's open in the editor
+- Build apps and games (just say "build a [thing]" and I'll create the files)
+- Fix and improve existing code
+- Clear the project (say "clear the project")
+- Help with homework, writing, research
 
-    setChatMessages((prev) => [...prev, { role: 'assistant', content: buildLog }])
+Be direct, concise, and helpful. If the user wants to build something, tell them to say "build [thing]".`,
+      prompt + contextNote
+    )
+    const aiResponse = response.trim() || "I can help with that. Tell me what you need — I can build apps, explain code, fix bugs, answer questions, or anything else."
+    setChatMessages((prev) => [...prev, { role: 'assistant', content: aiResponse }])
     setAgentRunning(false)
-    toast.success('Build complete', { description: `${filesCreated} file${filesCreated !== 1 ? 's' : ''} created` })
   }
 
   // Mobile fallback
