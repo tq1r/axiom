@@ -219,8 +219,8 @@ export function StudioApp() {
   // write files, clear project, edit existing files, search the web
   const handleAgentSend = async () => {
     const projectId = activeProject?.id
-    if (!chatInput.trim() || agentRunning || !projectId) return
     const prompt = chatInput.trim()
+    if (!prompt || agentRunning || !projectId) return
     setChatInput('')
 
     setChatMessages((prev) => [...prev, { role: 'user', content: prompt }])
