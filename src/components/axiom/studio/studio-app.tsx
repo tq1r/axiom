@@ -251,16 +251,17 @@ export function StudioApp() {
       return
     }
 
-    // Build flow
+    // Build flow — use local generator FIRST (it has complete working code)
+    // then optionally enhance with AI. The local generator ALWAYS produces
+    // working HTML that renders in the preview.
     const localPlan = generatePlan(prompt)
     const filesToCreate = localPlan.files
-    let buildLog = `I'll build: ${prompt}\n\nCreating ${filesToCreate.length} files...\n`
+    let buildLog = `I'll build: ${prompt}\n\n`
+    let filesCreated = 0
 
     for (let i = 0; i < filesToCreate.length; i++) {
       const file = filesToCreate[i]
       const fileDesc = file.description || file.path.split('/').pop() || 'file'
-
-      // Try AI for file content
       const ext = file.path.split('.').pop()?.toLowerCase() || 'tsx'
       const langMap: Record<string, string> = {
         ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
@@ -269,23 +270,20 @@ export function StudioApp() {
       }
       const lang = file.language || langMap[ext] || 'text'
 
-      const aiContent = await callAI(
-        `You are an expert ${lang} developer. Generate complete, production-ready code. No placeholders. Return ONLY raw code.`,
-        `Project: ${prompt}\nFile: ${file.path}\nPurpose: ${fileDesc}\n\nWrite the complete file:`
-      )
+      // USE LOCAL CONTENT DIRECTLY — it's already complete, tested, working code
+      // The local generator has real games, real shops, real apps
+      let finalContent = file.content
 
-      let finalContent = aiContent.trim()
-      if (finalContent.startsWith('```')) {
-        finalContent = finalContent.replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim()
-      }
-
-      const isGarbage = !finalContent || finalContent.length < 20 ||
-        finalContent.includes('I can definitely help') ||
-        finalContent.includes("What's on your mind") ||
-        finalContent.includes('Could you tell me')
-
-      if (isGarbage) {
-        finalContent = file.content
+      // Only try AI enhancement for non-HTML files (HTML is already complete locally)
+      if (lang !== 'html' && finalContent.length < 100) {
+        const aiContent = await callAI(
+          `You are an expert ${lang} developer. Generate complete, production-ready code. No placeholders. Return ONLY raw code.`,
+          `Project: ${prompt}\nFile: ${file.path}\nPurpose: ${fileDesc}\n\nWrite the complete file:`
+        )
+        const cleaned = aiContent.trim().replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim()
+        if (cleaned && cleaned.length > 50 && !cleaned.includes('I can definitely help')) {
+          finalContent = cleaned
+        }
       }
 
       if (finalContent && finalContent.length >= 10) {
@@ -295,9 +293,10 @@ export function StudioApp() {
           content: finalContent,
           description: fileDesc,
         })
+        filesCreated++
         buildLog += `✓ Created ${file.path} — ${finalContent.split('\n').length} lines\n`
 
-        // If HTML, update preview
+        // If HTML, update preview immediately
         if (lang === 'html') {
           setPreviewHtml(finalContent)
           setRightView('preview')
@@ -305,11 +304,11 @@ export function StudioApp() {
       }
     }
 
-    buildLog += `\nDone! Built ${filesToCreate.length} files. Check the preview on the right →`
+    buildLog += `\nDone! ${filesCreated} file${filesCreated !== 1 ? 's' : ''} created. Check the preview on the right →`
 
     setChatMessages((prev) => [...prev, { role: 'assistant', content: buildLog }])
     setAgentRunning(false)
-    toast.success('Build complete', { description: `${filesToCreate.length} files created` })
+    toast.success('Build complete', { description: `${filesCreated} file${filesCreated !== 1 ? 's' : ''} created` })
   }
 
   // Mobile fallback
