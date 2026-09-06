@@ -290,46 +290,104 @@ export function StudioApp() {
     )
 
     if (isBuildRequest) {
-      const localPlan = generatePlan(prompt)
-      const filesToCreate = localPlan.files
-      let buildLog = `I'll build: ${prompt}\n\n`
+      // Step 1: Ask AI what files to create (from scratch, no templates)
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: `Building: ${prompt}\n\nPlanning file structure...` }])
+
+      const fileStructureResponse = await callAI(
+        `You are a senior software architect. The user wants to build something as a SINGLE self-contained HTML file (so it can be previewed in an iframe). List the files needed. For most projects, a single index.html with all CSS and JS inline is best. If the project needs multiple files, list them.
+
+Return ONLY file paths, one per line. Example:
+index.html
+styles.css (if needed)
+script.js (if needed)
+
+No numbering, no explanation.`,
+        `Build: ${prompt}\n\nWhat files should I create? Prefer a single index.html with everything inline.`
+      )
+
+      // Parse file list
+      const validExt = ['html', 'css', 'js', 'json', 'md', 'ts', 'tsx', 'jsx', 'py']
+      const fileList = fileStructureResponse.split('\n')
+        .map(l => l.trim().replace(/^\d+\.\s*/, '').replace(/^-\s*/, '').split(/\s+/)[0])
+        .filter(l => l && !l.includes(' ') && l.includes('.') && validExt.includes(l.split('.').pop()?.toLowerCase() || ''))
+        .slice(0, 5)
+
+      // Default to index.html if AI didn't give valid files
+      const filesToBuild = fileList.length > 0 ? fileList : ['index.html']
+      let buildLog = `Building: ${prompt}\n\nCreating ${filesToBuild.length} file${filesToBuild.length !== 1 ? 's' : ''}...\n\n`
       let filesCreated = 0
 
-      for (let i = 0; i < filesToCreate.length; i++) {
-        const file = filesToCreate[i]
-        const fileDesc = file.description || file.path.split('/').pop() || 'file'
-        const ext = file.path.split('.').pop()?.toLowerCase() || 'tsx'
+      // Step 2: Generate each file from scratch using AI
+      for (let i = 0; i < filesToBuild.length; i++) {
+        const filePath = filesToBuild[i]
+        const ext = filePath.split('.').pop()?.toLowerCase() || 'html'
         const langMap: Record<string, string> = {
-          ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
-          css: 'css', json: 'json', html: 'html', md: 'markdown',
-          py: 'python', go: 'go', rs: 'rust', java: 'java',
+          html: 'html', css: 'css', js: 'javascript', json: 'json', md: 'markdown',
+          ts: 'typescript', tsx: 'tsx', jsx: 'jsx', py: 'python',
         }
-        const lang = file.language || langMap[ext] || 'text'
-        let finalContent = file.content
+        const lang = langMap[ext] || 'text'
 
-        if (lang !== 'html' && finalContent.length < 100) {
-          const aiContent = await callAI(
-            `You are an expert ${lang} developer. Generate complete, production-ready code. Return ONLY raw code.`,
-            `Project: ${prompt}\nFile: ${file.path}\nPurpose: ${fileDesc}\n\nWrite the complete file:`
-          )
-          const cleaned = aiContent.trim().replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim()
-          if (cleaned && cleaned.length > 50 && !cleaned.includes('I can definitely help')) {
-            finalContent = cleaned
-          }
+        // Show progress
+        setChatMessages((prev) => {
+          const updated = [...prev]
+          updated[updated.length - 1] = { role: 'assistant', content: buildLog + `Writing ${filePath}...` }
+          return updated
+        })
+
+        const fileContent = await callAI(
+          `You are a world-class ${lang} developer. The user wants to build: ${prompt}
+
+CRITICAL RULES:
+- Write COMPLETE, WORKING code from scratch. Not a template, not a skeleton.
+- Every function must be fully implemented. No "// TODO", no "// rest of code".
+- For HTML: include ALL CSS and JS inline in a single file. Make it look professional.
+- For games: implement actual game logic with canvas or DOM. Real interactivity.
+- For apps: real UI with working state management.
+- The code must actually RUN and DO something when opened in a browser.
+- Return ONLY the raw code. No markdown fences, no explanation, no comments about what you're doing.
+
+This is file ${i + 1} of ${filesToBuild.length}: ${filePath}`,
+          `Build a ${prompt} as ${filePath}.\n\nWrite the COMPLETE file with all functionality:\n- Full implementation, no placeholders\n- Professional styling\n- All interactivity working\n- Self-contained (no external dependencies except CDNs)\n\nWrite the code now:`
+        )
+
+        let finalContent = fileContent.trim()
+        if (finalContent.startsWith('```')) {
+          finalContent = finalContent.replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim()
         }
 
-        if (finalContent && finalContent.length >= 10) {
-          addFileToProject(projectId, { path: file.path, language: lang, content: finalContent, description: fileDesc })
-          filesCreated++
-          buildLog += `✓ Created ${file.path} — ${finalContent.split('\n').length} lines\n`
-          if (lang === 'html') { setPreviewHtml(finalContent); setRightView('preview') }
+        // Validate
+        if (!finalContent || finalContent.length < 30 ||
+            finalContent.includes('I can definitely help') ||
+            finalContent.includes("What's on your mind") ||
+            finalContent.includes('Could you tell me')) {
+          buildLog += `✗ Failed to generate ${filePath}\n`
+          continue
+        }
+
+        addFileToProject(projectId, {
+          path: filePath,
+          language: lang,
+          content: finalContent,
+          description: `Generated for: ${prompt}`,
+        })
+        filesCreated++
+        const lines = finalContent.split('\n').length
+        buildLog += `✓ Created ${filePath} — ${lines} lines\n`
+
+        if (lang === 'html') {
+          setPreviewHtml(finalContent)
+          setRightView('preview')
         }
       }
 
-      buildLog += `\nDone! ${filesCreated} file${filesCreated !== 1 ? 's' : ''} created. Check the preview on the right →`
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: buildLog }])
+      buildLog += `\nDone! ${filesCreated} file${filesCreated !== 1 ? 's' : ''} created from scratch. Check the preview →`
+      setChatMessages((prev) => {
+        const updated = [...prev]
+        updated[updated.length - 1] = { role: 'assistant', content: buildLog }
+        return updated
+      })
       setAgentRunning(false)
-      toast.success('Build complete', { description: `${filesCreated} file${filesCreated !== 1 ? 's' : ''} created` })
+      toast.success('Build complete', { description: `${filesCreated} file${filesCreated !== 1 ? 's' : ''} generated by AI` })
       return
     }
 
