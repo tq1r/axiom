@@ -62,10 +62,16 @@ export function generatePlan(prompt: string): AgentPlan {
   }
 
   // Games — always generate as HTML so the preview works
-  if (p.includes('minecraft') || p.includes('game') || p.includes('snake') || p.includes('tetris') ||
-      p.includes('pong') || p.includes('breakout') || p.includes('flappy') || p.includes('pacman') ||
-      p.includes('chess') || p.includes('tic tac toe') || p.includes('tictactoe') || p.includes('memory') ||
-      p.includes('platformer') || p.includes('shooter') || p.includes('rpg') || p.includes('puzzle')) {
+  if (p.includes('minecraft') || p.includes('craft') || p.includes('voxel')) {
+    return generateGameHTML(prompt)
+  }
+  if (p.includes('clicker') || p.includes('cookie') || p.includes('idle')) {
+    return generateClickerGame(prompt)
+  }
+  if (p.includes('snake') || p.includes('tetris') || p.includes('pong') || p.includes('breakout') ||
+      p.includes('flappy') || p.includes('pacman') || p.includes('chess') || p.includes('tic tac toe') ||
+      p.includes('tictactoe') || p.includes('memory') || p.includes('platformer') || p.includes('shooter') ||
+      p.includes('rpg') || p.includes('puzzle') || p.includes('game')) {
     return generateGameHTML(prompt)
   }
 
@@ -2431,4 +2437,108 @@ loop();
 </script>
 </body>
 </html>`
+}
+
+// ============ CLICKER GAME ============
+function generateClickerGame(prompt: string): AgentPlan {
+  const name = prompt.toLowerCase().includes('cookie') ? 'Cookie Empire' :
+    prompt.toLowerCase().includes('idle') ? 'Idle Tycoon' : 'Click Empire'
+  return {
+    steps: [`Generate ${name}`, 'Add clicking + upgrades + achievements + save'],
+    files: [{
+      path: 'index.html',
+      language: 'html',
+      description: `Complete ${name} clicker game`,
+      content: `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${name}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#1a1a2e;color:#eee;font-family:'Segoe UI',sans-serif;min-height:100vh;}
+.container{max-width:900px;margin:0 auto;padding:20px;}
+h1{text-align:center;font-size:2rem;margin:10px 0;background:linear-gradient(90deg,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+#score-display{text-align:center;font-size:3rem;font-weight:bold;margin:10px 0;text-shadow:0 0 20px rgba(251,191,36,0.5);}
+#per-second{text-align:center;font-size:1.2rem;color:#a1a1aa;margin-bottom:20px;}
+.click-area{display:flex;justify-content:center;margin:20px;}
+#click-btn{width:180px;height:180px;border-radius:50%;border:none;cursor:pointer;background:radial-gradient(circle at 30% 30%,#fbbf24,#f59e0b,#d97706);box-shadow:0 0 40px rgba(251,191,36,0.4);transition:transform 0.1s;position:relative;}
+#click-btn:hover{transform:scale(1.05);}
+#click-btn:active{transform:scale(0.92);}
+#click-btn::after{content:'\\u{1F446}';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.5rem;}
+.float-text{position:fixed;pointer-events:none;font-weight:bold;color:#fbbf24;font-size:1.5rem;animation:floatUp 1s ease-out forwards;z-index:100;}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1);}100%{opacity:0;transform:translateY(-80px) scale(1.5);}}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:30px;}
+.panel{background:#16213e;border-radius:12px;padding:20px;border:1px solid #1e293b;}
+.panel h2{font-size:1.1rem;margin-bottom:15px;color:#fbbf24;}
+.upgrade{display:flex;justify-content:space-between;align-items:center;padding:12px;margin-bottom:8px;background:#1a1a2e;border-radius:8px;cursor:pointer;transition:all 0.2s;border:1px solid transparent;}
+.upgrade:hover{border-color:#f59e0b;background:#1e293b;}
+.upgrade.disabled{opacity:0.4;cursor:not-allowed;}
+.upgrade-info{flex:1;}
+.upgrade-name{font-weight:600;font-size:0.95rem;}
+.upgrade-desc{font-size:0.75rem;color:#71717a;margin-top:2px;}
+.upgrade-cost{text-align:right;}
+.upgrade-cost .price{color:#fbbf24;font-weight:bold;font-size:0.95rem;}
+.upgrade-cost .owned{font-size:0.75rem;color:#71717a;}
+.stat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1e293b;font-size:0.9rem;}
+.stat:last-child{border:none;}
+.stat .val{color:#fbbf24;font-weight:bold;}
+.achievement{padding:8px 12px;margin-bottom:6px;border-radius:6px;background:#1a1a2e;font-size:0.85rem;display:flex;align-items:center;gap:8px;}
+.achievement.unlocked{background:#1e3a1e;color:#4ade80;}
+.achievement.locked{opacity:0.4;}
+.btn-reset{display:block;margin:20px auto;padding:8px 24px;background:#dc2626;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.85rem;}
+.btn-reset:hover{background:#b91c1c;}
+@media(max-width:600px){.grid{grid-template-columns:1fr;}#click-btn{width:140px;height:140px;}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>${name}</h1>
+<div id="score-display">0</div>
+<div id="per-second">0 per second</div>
+<div class="click-area"><button id="click-btn"></button></div>
+<div class="grid">
+<div class="panel"><h2>Shop</h2><div id="shop"></div></div>
+<div class="panel"><h2>Stats</h2><div id="stats"></div><h2 style="margin-top:20px;">Achievements</h2><div id="achievements"></div></div>
+</div>
+<button class="btn-reset" onclick="resetGame()">Reset Save</button>
+</div>
+<script>
+let score=0,totalClicks=0,totalEarned=0,clickPower=1;
+const UP=[{n:'Auto-Clicker',d:'Clicks once/sec',c:15,r:1,o:0},{n:'Worker',d:'Hires a worker',c:100,r:5,o:0},{n:'Farm',d:'Grows clicks',c:500,r:25,o:0},{n:'Factory',d:'Mass produces',c:2000,r:100,o:0},{n:'Lab',d:'Researches',c:10000,r:500,o:0},{n:'Portal',d:'Another dimension',c:50000,r:2500,o:0},{n:'Time Machine',d:'From the future',c:200000,r:10000,o:0}];
+const CU=[{n:'Sharp Cursor',d:'+1 per click',c:50,o:0,p:1},{n:'Diamond Cursor',d:'+5 per click',c:500,o:0,p:5},{n:'Golden Cursor',d:'+25 per click',c:5000,o:0,p:25},{n:'Plasma Cursor',d:'+100 per click',c:50000,o:0,p:100}];
+const ACH=[{n:'First Click',d:'Click once',c:()=>totalClicks>=1},{n:'100 Clicks',d:'Click 100 times',c:()=>totalClicks>=100},{n:'1K Score',d:'Reach 1,000',c:()=>totalEarned>=1000},{n:'10K Score',d:'Reach 10,000',c:()=>totalEarned>=10000},{n:'100K Score',d:'Reach 100,000',c:()=>totalEarned>=100000},{n:'First Worker',d:'Buy auto-clicker',c:()=>UP[0].o>=1},{n:'Factory Owner',d:'Buy a factory',c:()=>UP[3].o>=1},{n:'Time Traveler',d:'Buy time machine',c:()=>UP[6].o>=1},{n:'1K Clicks',d:'Click 1,000 times',c:()=>totalClicks>=1000},{n:'Millionaire',d:'Reach 1M',c:()=>totalEarned>=1000000}];
+const unl=new Set();
+function save(){localStorage.setItem('cg',JSON.stringify({score,totalClicks,totalEarned,clickPower,UP,CU,[...unl]}));}
+function load(){const d=localStorage.getItem('cg');if(!d)return;try{const s=JSON.parse(d);score=s.score||0;totalClicks=s.totalClicks||0;totalEarned=s.totalEarned||0;clickPower=s.clickPower||1;s.UP?.forEach((u,i)=>{if(UP[i])UP[i].o=u.o||0;});s.CU?.forEach((u,i)=>{if(CU[i])CU[i].o=u.o||0;});(s.unl||[]).forEach(id=>unl.add(id));}catch(e){}}
+load();
+function cost(u){return Math.floor(u.c*Math.pow(1.15,u.o));}
+function ps(){return UP.reduce((s,u)=>s+u.r*u.o,0);}
+document.getElementById('click-btn').addEventListener('click',e=>{score+=clickPower;totalClicks++;totalEarned+=clickPower;const t=document.createElement('div');t.className='float-text';t.textContent='+'+clickPower;t.style.left=e.clientX+'px';t.style.top=e.clientY+'px';document.body.appendChild(t);setTimeout(()=>t.remove(),1000);checkA();render();});
+function buyU(i){const u=UP[i];const c=cost(u);if(score>=c){score-=c;u.o++;checkA();render();save();}}
+function buyC(i){const u=CU[i];const c=Math.floor(u.c*Math.pow(1.5,u.o));if(score>=c){score-=c;u.o++;clickPower+=u.p;render();save();}}
+function checkA(){ACH.forEach(a=>{if(!unl.has(a.n)&&a.c())unl.add(a.n);});}
+function fmt(n){return Math.floor(n).toLocaleString();}
+function render(){
+document.getElementById('score-display').textContent=fmt(score);
+document.getElementById('per-second').textContent=fmt(ps())+' per second';
+let h='';
+UP.forEach((u,i)=>{const c=cost(u);h+='<div class="upgrade'+(score>=c?'':' disabled')+'" onclick="buyU('+i+')"><div class="upgrade-info"><div class="upgrade-name">'+u.n+'</div><div class="upgrade-desc">'+u.d+' ('+u.r+'/s)</div></div><div class="upgrade-cost"><div class="price">'+fmt(c)+'</div><div class="owned">Owned: '+u.o+'</div></div></div>';});
+CU.forEach((u,i)=>{const c=Math.floor(u.c*Math.pow(1.5,u.o));h+='<div class="upgrade'+(score>=c?'':' disabled')+'" onclick="buyC('+i+')"><div class="upgrade-info"><div class="upgrade-name">'+u.n+'</div><div class="upgrade-desc">'+u.d+'</div></div><div class="upgrade-cost"><div class="price">'+fmt(c)+'</div><div class="owned">Owned: '+u.o+'</div></div></div>';});
+document.getElementById('shop').innerHTML=h;
+document.getElementById('stats').innerHTML='<div class="stat"><span>Score</span><span class="val">'+fmt(score)+'</span></div><div class="stat"><span>Total Clicks</span><span class="val">'+totalClicks.toLocaleString()+'</span></div><div class="stat"><span>Total Earned</span><span class="val">'+fmt(totalEarned)+'</span></div><div class="stat"><span>Click Power</span><span class="val">'+clickPower+'</span></div><div class="stat"><span>Per Second</span><span class="val">'+fmt(ps())+'</span></div>';
+document.getElementById('achievements').innerHTML=ACH.map(a=>'<div class="achievement '+(unl.has(a.n)?'unlocked':'locked')+'">'+(unl.has(a.n)?'\\u2705':'\\u{1F512}')+' '+a.n+' — '+a.d+'</div>').join('');
+}
+function resetGame(){if(confirm('Reset all progress?')){score=0;totalClicks=0;totalEarned=0;clickPower=1;UP.forEach(u=>u.o=0);CU.forEach(u=>u.o=0);unl.clear();localStorage.removeItem('cg');render();}}
+setInterval(()=>{const p=ps();if(p>0){score+=p/10;totalEarned+=p/10;checkA();render();}},100);
+setInterval(save,5000);
+render();
+</script>
+</body>
+</html>`
+    }],
+    command: 'open index.html',
+    commandOutput: 'Game ready',
+  }
 }
