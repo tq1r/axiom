@@ -351,16 +351,40 @@ This is file ${i + 1} of ${filesToBuild.length}: ${filePath}`,
         )
 
         let finalContent = fileContent.trim()
+
+        // Strip markdown fences if present
         if (finalContent.startsWith('```')) {
           finalContent = finalContent.replace(/^```[a-z]*\n?/, '').replace(/```\s*$/, '').trim()
         }
 
-        // Validate
-        if (!finalContent || finalContent.length < 30 ||
-            finalContent.includes('I can definitely help') ||
-            finalContent.includes("What's on your mind") ||
-            finalContent.includes('Could you tell me')) {
-          buildLog += `✗ Failed to generate ${filePath}\n`
+        // If the response is mostly text/explanation (not code), try to extract code from it
+        if (finalContent && !finalContent.startsWith('<') && !finalContent.startsWith('//') && !finalContent.startsWith('/*') && !finalContent.startsWith('{') && !finalContent.startsWith('import') && !finalContent.startsWith('const') && !finalContent.startsWith('function') && !finalContent.startsWith('class')) {
+          // Try to find HTML/code within the response
+          const htmlMatch = finalContent.match(/<!DOCTYPE[\s\S]*<\/html>/i)
+          if (htmlMatch) {
+            finalContent = htmlMatch[0]
+          } else {
+            // Try to find code between backticks
+            const codeMatch = finalContent.match(/```\w*\n([\s\S]*?)```/)
+            if (codeMatch) {
+              finalContent = codeMatch[1].trim()
+            }
+          }
+        }
+
+        // Validate — check for actual code, not conversation
+        const isConversation = !finalContent ||
+          finalContent.length < 30 ||
+          finalContent.includes('I can definitely help') ||
+          finalContent.includes("What's on your mind") ||
+          finalContent.includes('Could you tell me') ||
+          finalContent.includes('I\'ll help you') ||
+          finalContent.includes('Here is') ||
+          finalContent.includes('Here\'s how') ||
+          (lang === 'html' && !finalContent.includes('<') && !finalContent.includes('{') && !finalContent.includes('function'))
+
+        if (isConversation) {
+          buildLog += `✗ Failed to generate ${filePath} — AI returned conversation instead of code\n`
           continue
         }
 
